@@ -5,8 +5,9 @@
 			<thead>
 				<tr>
 					<td colspan="9">
-						<button @click="removeAll" style="float: right;">RemoveAll</button>
-						<button @click="reload" style="float: right;">reload</button>
+						<button @click="removeAll" style="float: right;" title="Issues: not work">Remove all</button>
+						<button @click="reload" style="float: right;" title="Issues: not work ??">reload</button>
+						<button @click="killAll" style="float: right;">Kill all</button>
 					</td>
 				</tr>
 				
@@ -173,8 +174,10 @@
 				let smallTip = this.$root.$refs.smallTip;
 				
 				let desc = await MapLifeEntity.loadLifeDesc(m);
+
+				let _url = $get.imageUrl(`/${type}/${m.id}/stand/0`);
 				
-				smallTip.html = ["<div>" + desc.name + "</div>" + `<img src="/images/${type}/${m.id}.img/stand/0" />`];
+				smallTip.html = ["<div>" + desc.name + "</div>" + `<img src="${_url}" />`];
 				
 				smallTip.show(function () {
 					smallTip.setPosition({
@@ -216,6 +219,9 @@
 				this.spawns = [];
 				this.$emit("resize");
 			},
+			killAll: function () {
+				scene_map.lifeMgr.entities.forEach(life => life.die());
+			},
 		},
 		mounted: function () {
 			this.$on("onCollapsed", this.onCollapsed);
@@ -232,8 +238,9 @@
 }
 
 table {
-    border-collapse: collapse;
-    border-spacing: 0;
+	border-collapse: collapse;
+	border-spacing: 0;
+	width: 100%;
 }
 
 tr.new-item {

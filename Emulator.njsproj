@@ -6,7 +6,7 @@
     <ProjectGuid>{97e9329a-30d6-40ee-b133-d6a2385ed9db}</ProjectGuid>
     <ProjectHome />
     <ProjectView>ShowAllFiles</ProjectView>
-    <StartupFile>app.js</StartupFile>
+    <StartupFile>GameServer\app.js</StartupFile>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <ProjectTypeGuids>{3AF33F2E-1136-4D97-BBB7-1795711AC8B8};{349c5851-65df-11da-9384-00065b846f21};{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}</ProjectTypeGuids>
@@ -16,15 +16,20 @@
     <StartWebBrowser>True</StartWebBrowser>
     <Environment>EDGE_CS_DEBUG=1
 _ELECTRON_PATH=C:\Users\GREEN\AppData\Roaming\npm\node_modules\electron-prebuilt\dist\electron.exe</Environment>
-    <ScriptArguments>--port 80</ScriptArguments>
+    <ScriptArguments>--port 80 -P</ScriptArguments>
     <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>
+    <LaunchUrl>http://localhost</LaunchUrl>
+    <SaveNodeJsSettingsInProjectFile>True</SaveNodeJsSettingsInProjectFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'" />
   <PropertyGroup Condition="'$(Configuration)' == 'Release'" />
   <ItemGroup>
     <Compile Include="app.js" />
-    <Compile Include="public\classList.js" />
-    <Compile Include="public\resource.js" />
+    <Compile Include="GameServer\app.js" />
+    <Compile Include="public\javascripts\demo.js" />
+    <Compile Include="public\javascripts\index.js" />
+    <Compile Include="public\javascripts\resource.js" />
+    <Compile Include="public\javascripts\resource.test.js" />
     <Compile Include="public\spine\atlas.js" />
     <Compile Include="public\spine\build\spine-all.js" />
     <Compile Include="public\spine\build\spine-canvas.js" />
@@ -39,35 +44,54 @@ _ELECTRON_PATH=C:\Users\GREEN\AppData\Roaming\npm\node_modules\electron-prebuilt
     <Compile Include="public\spine\spine.js" />
     <Compile Include="public\spine\SpineBinary.js" />
     <Compile Include="public\spine\SSAnim.js" />
-    <Compile Include="src\app.js" />
     <Compile Include="src\Client\Client.js">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="src\Client\PlayerStat.js">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="src\Client\PMovePath.js">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="src\Common\AttackInfo.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\Common\Packet\ChatPacket.js" />
     <Compile Include="src\Common\Packet\CharacterPacket.js" />
     <Compile Include="src\Common\Packet\index.js" />
+    <Compile Include="src\Common\Packet\ScenePacket.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\Common\Packet\LoginPacket.js" />
+    <Compile Include="src\Common\Packet\MobPacket.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\Common\PlayerData.js" />
     <Compile Include="src\components\CorePosition.js" />
     <Compile Include="src\game\Animation.js" />
     <Compile Include="src\game\Canvas2DRenderer.js" />
+    <Compile Include="src\game\Cursor.js" />
     <Compile Include="src\game\demo.js" />
     <Compile Include="src\game\Engine.js" />
     <Compile Include="src\game\GameState.js" />
     <Compile Include="src\game\init.js" />
+    <Compile Include="src\game\InputKey.js" />
     <Compile Include="src\game\IRenderer.js" />
+    <Compile Include="src\game\Item.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\game\main.js" />
     <Compile Include="src\game\Map.js" />
     <Compile Include="src\game\math.js" />
     <Compile Include="src\game\MobSkill\238.FairyDust.js" />
     <Compile Include="src\game\MobSkill\238.FlowerTrap.js" />
     <Compile Include="src\game\MobSkill\MobSkillBase.js" />
+    <Compile Include="src\game\Physics\Filter.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\game\Physics\LadderRope.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\game\Physics\PBullet.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\game\Physics\DebugDraw.js" />
     <Compile Include="src\game\Physics\Foothold.js" />
     <Compile Include="src\game\Physics\Ground.js" />
@@ -75,13 +99,24 @@ _ELECTRON_PATH=C:\Users\GREEN\AppData\Roaming\npm\node_modules\electron-prebuilt
     <Compile Include="src\game\Physics\PMob.js" />
     <Compile Include="src\game\Physics\PPlayer.js" />
     <Compile Include="src\game\Physics\World.js" />
+    <Compile Include="src\game\Renderer\Chair.js" />
     <Compile Include="src\game\Renderer\CharacterActionAnimation.js" />
     <Compile Include="src\game\Renderer\CharacterRenderer.js" />
+    <Compile Include="src\game\Renderer\ChatBalloon.js" />
+    <Compile Include="src\game\Renderer\DamageNumber.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\game\Renderer\Layer.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\game\Renderer\LifeRenderer.js" />
     <Compile Include="src\game\Renderer\MobRenderer.js" />
+    <Compile Include="src\game\Renderer\NameLabel.js" />
     <Compile Include="src\game\Renderer\NpcRenderer.js" />
+    <Compile Include="src\game\Renderer\PanelRenderer.js" />
     <Compile Include="src\game\Renderer\ParticleSystem.js" />
-    <Compile Include="src\game\Renderer\Scene.js" />
+    <Compile Include="src\game\Renderer\RenderingOption.js" />
+    <Compile Include="src\game\Renderer\SceneRenderer.js" />
     <Compile Include="src\game\SceneCharacter.js" />
     <Compile Include="src\game\SceneObject.js" />
     <Compile Include="src\game\Skill.js" />
@@ -89,15 +124,26 @@ _ELECTRON_PATH=C:\Users\GREEN\AppData\Roaming\npm\node_modules\electron-prebuilt
     <Compile Include="src\game\WebGLRenderer.js" />
     <Compile Include="src\index.js" />
     <Compile Include="src\init.js" />
+    <Compile Include="src\state.js" />
+    <Compile Include="src\ui\Basic\KeySlot.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\ui\Basic\KeySlotData.js">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\ui\Basic\VScrollbar.vue">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="src\ui\UIAnimationManager.js">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="src\util.js" />
     <Compile Include="webpack.config.js" />
-    <Compile Include="wvs.js" />
   </ItemGroup>
   <ItemGroup>
     <Content Include=".eslintrc" />
     <Content Include=".npmignore" />
     <Content Include="package.json" />
-    <Content Include="public\1x1.png" />
     <Content Include="public\data\0170.json" />
     <Content Include="public\data\accessoryEars.json" />
     <Content Include="public\data\accessoryEyes.json" />
@@ -168,6 +214,7 @@ _ELECTRON_PATH=C:\Users\GREEN\AppData\Roaming\npm\node_modules\electron-prebuilt
     <Content Include="public\data\魔劍.json" />
     <Content Include="public\data\魔法護腕.json" />
     <Content Include="public\demo.html" />
+    <Content Include="public\images\1x1.png" />
     <Content Include="public\images\player_pause.png" />
     <Content Include="public\images\player_play.png" />
     <Content Include="public\images\toolstrip_beginner.png" />
@@ -197,6 +244,9 @@ _ELECTRON_PATH=C:\Users\GREEN\AppData\Roaming\npm\node_modules\electron-prebuilt
     <Content Include="public\images\ui-icons_ffffff_256x240.png" />
     <Content Include="public\images\warning.png" />
     <Content Include="public\index.html" />
+    <Content Include="public\javascripts\demo.js.map" />
+    <Content Include="public\javascripts\index.js.map" />
+    <Content Include="public\javascripts\resource.test.html" />
     <Content Include="public\spine\bg.png" />
     <Content Include="public\spine\index.html" />
     <Content Include="public\stylesheets\style.css" />
@@ -206,29 +256,42 @@ _ELECTRON_PATH=C:\Users\GREEN\AppData\Roaming\npm\node_modules\electron-prebuilt
     <Content Include="src\components\ui-dialog.vue" />
     <Content Include="src\components\ui-draggable.vue" />
     <Content Include="src\components\ui-menu.vue" />
+    <Content Include="src\components\ui-resizable.vue" />
     <Content Include="src\components\ui-sortable.vue" />
     <Content Include="src\components\ui-trigger.vue" />
     <Content Include="src\editor\editor.vue" />
-    <Content Include="src\editor\ui-character-attribute.vue" />
+    <Content Include="src\editor\ui-character-renderer.vue" />
     <Content Include="src\editor\ui-character-svg.vue" />
     <Content Include="src\editor\ui-character.vue" />
     <Content Include="src\editor\ui-equip-box.vue" />
     <Content Include="src\editor\ui-map-editor.vue" />
     <Content Include="src\editor\ui-mob-list.vue" />
     <Content Include="src\main-ui.vue" />
+    <Content Include="src\ui-app.vue" />
+    <Content Include="src\ui-login.vue" />
     <Content Include="src\ui\BasicComponent.vue" />
     <Content Include="src\ui\StatusBar.vue" />
+    <Content Include="src\ui\Basic\UISlotItem.vue">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\ui\UIToolTip\Frame2.vue" />
     <Content Include="src\ui\UIToolTip\ItemTip.vue" />
     <Content Include="src\ui\UIWindow\Equip.vue" />
+    <Content Include="src\ui\UIWindow\Item.vue" />
+    <Content Include="src\ui\UIWindow\Stat.vue" />
+    <Content Include="src\ui\UIWindow\Skill.vue">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="src\ui\UIWindow\WindowBase.vue" />
     <Content Include="typings.json" />
     <Content Include="wz.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="GameServer\" />
     <Folder Include="public\" />
     <Folder Include="public\data\" />
     <Folder Include="public\images\" />
+    <Folder Include="public\javascripts\" />
     <Folder Include="public\spine\" />
     <Folder Include="public\spine\build\" />
     <Folder Include="public\stylesheets\" />
@@ -243,6 +306,7 @@ _ELECTRON_PATH=C:\Users\GREEN\AppData\Roaming\npm\node_modules\electron-prebuilt
     <Folder Include="src\Client\" />
     <Folder Include="src\Common\" />
     <Folder Include="src\ui\" />
+    <Folder Include="src\ui\Basic\" />
     <Folder Include="src\ui\UIToolTip\" />
     <Folder Include="src\ui\UIWindow\" />
     <Folder Include="typings\" />

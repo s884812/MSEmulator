@@ -1,6 +1,6 @@
 
 import { ColorRGB, ImageDataHelper } from "../IRenderer.js";
-import { Vec2 } from "../math.js";
+import { Vec2, Rectangle } from "../math.js";
 import { Sprite } from "../Sprite.js";
 
 
@@ -64,7 +64,7 @@ export class Particle {
 		this.scale = this.startScale;
 		this.color = new ColorRGB(255, 255, 255);
 	}
-
+	
 	/** @param {ParticleSystem} ps */
 	_initParam(ps) {
 		this.lifeMax = rand_r(ps.life, ps.lifeVar);
@@ -178,8 +178,20 @@ export class Particle {
 	}
 }
 
-export class ParticleGroup {
+class _ParticleGroupData {
 	constructor() {
+		this.GRAVITY = new Vec2();
+		this.life = 0;
+		this.lifeVar = 0;
+		this.duration = 0;
+		this.totalParticle = 0;
+	}
+}
+
+export class ParticleGroup extends _ParticleGroupData {
+	constructor() {
+		super();
+
 		this.x = 0;
 		this.y = 0;
 
@@ -222,20 +234,21 @@ export class ParticleGroup {
 	
 	async load(particle_name) {
 		this.particleName = particle_name;
-		
-		let data = JSON.parse(await $get.data(this._particle_path));
+
+		/** @type ParticleGroupData */
+		let data = await $get.data(this._particle_path);
 		
 		Object.assign(this, data);
 
-		this.GRAVITY = {};
-		Object.assign(this.GRAVITY, data.GRAVITY);
+		this.GRAVITY.x = data.GRAVITY.x;
+		this.GRAVITY.y = data.GRAVITY.y;
 
 		this.life = data.life * 1000;
 		this.lifeVar = data.lifeVar * 1000;
 		this.duration = data.duration * 1000;
 
-		//this.totalParticle = 2;
-		this.delay = (this.life + this.lifeVar / 2) / this.totalParticle;
+		//this.totalParticle = 2;//debug
+		this.delay = this.life / this.totalParticle;
 
 		if (_experimental_particle) {
 			const that = this;
@@ -251,7 +264,7 @@ export class ParticleGroup {
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${this.naturalWidth}" height="${this.naturalHeight}">
 	<defs>
 		<mask id="Mask">
-			<image xlink:href="${new URL("/images" + that._texture_base_path, window.location).href}"/>
+			<image xlink:href="${new URL("images" + that._texture_base_path, window.location).href}"/>
 		</mask>
 	</defs>
 	<g>
@@ -262,12 +275,12 @@ export class ParticleGroup {
 					that.texture = texture;
 					resolve();
 				}
-				image.src = "/images" + that._texture_base_path;
+				image.src = "images" + that._texture_base_path;
 			});
 		}
 		else {
 			this.texture = new Sprite(data.texture);
-			this.texture._url = "/images" + this._texture_base_path;
+			this.texture._url = "images" + this._texture_base_path;
 		}
 	}
 	
@@ -277,16 +290,17 @@ export class ParticleGroup {
 			this.particles.push(new Particle(this));
 			this.time = 0;
 		}
-
-		for (let i = 0; i < this.particles.length; ++i) {
-			const particle = this.particles[i];
+		
+		this.particles = this.particles.filter(particle => {
 			if (particle.isEnd()) {
-				this.particles.splice(i, 1);
+				return false;
 			}
 			else {
 				particle.update(stamp);
+				return true;
 			}
-		}
+		});
+		
 		this.time += stamp;
 		this.delta += stamp;
 	}
@@ -311,13 +325,15 @@ export class ParticleGroup {
 		
 		for (let i = 0; i < this.particles.length; ++i) {
 			const particle = this.particles[i];
-			const x = this.x + mx;
-			const y = this.y + my;
-			const hw = this.texture.width * particle.scale;
-			const hh = this.texture.height * particle.scale;
-			
-			if (!viewRect || viewRect.collide4f2(x + particle.startX + particle.pos.x, y + particle.startY + particle.pos.y, hw, hh)) {
-				particle.draw(renderer, this.texture, x, y);
+			if (!particle.isEnd()) {
+				const x = this.x + mx;
+				const y = this.y + my;
+				const hw = this.texture.width * particle.scale;
+				const hh = this.texture.height * particle.scale;
+				
+				if (!viewRect || viewRect.collide4f2(x + particle.startX + particle.pos.x, y + particle.startY + particle.pos.y, hw, hh)) {
+					particle.draw(renderer, this.texture, x, y);
+				}
 			}
 		}
 		
@@ -327,7 +343,7 @@ export class ParticleGroup {
 	}
 	
 	get _particle_path() {
-		return ["/Effect/particle.img", this.particleName].join("/");
+		return ["/Effect/particle", this.particleName].join("/");
 	}
 	get _texture_base_path() {
 		return [this._particle_path, "texture"].join("/");

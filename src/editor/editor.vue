@@ -2,63 +2,93 @@
 <template>
 	<div @contextmenu.self.prevent="" class="dialog-group Editor">
 		
-		<ui-dialog :position="wnds.menu.pos" width="302px">
+		<ui-dialog :title="wnds.menu.name" ref="menu">
 			<template slot="header">
 				Menu
 			</template>
-			<details open>
-				<summary>bgm</summary>
-				<div>
-					<audio id="bgm" controls loop> autoplay</audio>
-				</div>
-			</details>
-			<details open>
-				<summary>window</summary>
-				<p>
-					<div v-for="(wnd, key) in wnds" v-if="!wnd.name.startsWith('$')">
-						<label>
-							<input type="checkbox" v-model="wnd.visable" @click="$refs[key]?$refs[key].requireOrder($event):undefined" checked /> {{wnd.name}}
-						</label>
-					</div>
-				</p>
-			</details>
-			<details>
-				<summary>scene</summary>
-				<p>
-					<div>
-						<label>
-							Map <input @keydown.enter="$gv.scene_map.load($event.target.value.padLeft(9, '0'))" />
-						</label>
-					</div>
-					<div>
-						<label><input type="checkbox" v-model="$gv.m_is_rendering_map" />Map</label>
-						<label><input type="checkbox" v-model="$gv.m_display_back" />map back</label>
-						<label><input type="checkbox" v-model="$gv.m_display_front" />map front</label>
-						<label><input type="checkbox" v-model="$gv.m_display_mapobj" />map object</label>
-						<label><input type="checkbox" v-model="$gv.m_display_maptile" />map tile</label>
-						<label><input type="checkbox" v-model="$gv.m_display_particle_system" />particle system</label>
-						<label><input type="checkbox" v-model="$gv.m_display_skeletal_anim" />spine</label>
-					</div>
-				</p>
-			</details>
-			<details>
-				<summary>editor</summary>
-				<p>
-					<label><input type="checkbox" v-model="$gv.m_display_foothold" /> foothold</label>
-					<label><input type="checkbox" v-model="$gv.m_display_selected_object" /> selected object</label>
-				</p>
-			</details>
-			<details>
-				<summary>debug</summary>
-				<p>
-					<label><input type="checkbox" v-model="$gv.m_display_physics_debug" /> physics debug</label>
-					<label><input type="checkbox" v-model="$gv.m_display_debug_info" /> debug info</label>
-				</p>
-			</details>
+			<template>
+				<details open>
+					<summary>bgm</summary>
+					<div ref="bgm_outer"></div>
+				</details>
+				<details open>
+					<summary>window</summary>
+					<p>
+						<div v-for="(wnd, key) in wnds" v-if="!wnd.name.startsWith('$')">
+							<label>
+								<input type="checkbox" v-model="wnd.visable" @click="$refs[key]?$refs[key].requireOrder($event):undefined" checked /> {{wnd.name}}
+							</label>
+						</div>
+					</p>
+				</details>
+			</template>
+			<template>
+				<details>
+					<summary>scene</summary>
+					<p>
+						<div>
+							<label>
+								Map <input @keydown.enter="gv.scene_map.load($event.target.value.padStart(9, '0'))" />
+							</label>
+						</div>
+						<div>
+							<fieldset>
+								<legend>map</legend>
+								<label><input type="checkbox" v-model="gv.m_is_rendering_map" />Map</label>
+								<label><input type="checkbox" v-model="gv.m_display_back" />back</label>
+								<label><input type="checkbox" v-model="gv.m_display_front" />front</label>
+								<label><input type="checkbox" v-model="gv.m_display_mapobj" />object</label>
+								<label><input type="checkbox" v-model="gv.m_display_maptile" />tile</label>
+								<label><input type="checkbox" v-model="gv.m_display_portal" />portal</label>
+							</fieldset>
+							<fieldset>
+								<legend>map</legend>
+								<label><input type="checkbox" v-model="gv.m_display_particle_system" />particle system</label>
+								<label><input type="checkbox" v-model="gv.m_display_skeletal_anim" />skeletal animation</label>
+							</fieldset>
+							<fieldset>
+								<legend>life</legend>
+								<label><input type="checkbox" v-model="gv.m_display_life" />life</label>
+								<label><input type="checkbox" v-model="gv.m_display_player" />player</label>
+								<label><input type="checkbox" v-model="gv.m_display_other_player" />other player</label>
+							</fieldset>
+							<fieldset>
+								<legend>character</legend>
+								<div><label><input type="checkbox" v-model="gv.m_display_name_label" />顯示名牌</label></div>
+								<div><label>名牌<input type="number" min="0" v-model="gv.NameLabel_default_style" /></label></div>
+								<div><label>聊天<input type="number" min="0" v-model.number="gv.ChatBalloon_default_style" /></label></div>
+								<div><label>聊天顯示時間<input type="number" min="0" v-model.number="gv.ChatBalloon_display_duration" />毫秒</label></div>
+							</fieldset>
+						</div>
+					</p>
+				</details>
+				<details>
+					<summary>editor</summary>
+					<p>
+						<label><input type="checkbox" v-model="gv.m_display_foothold" /> foothold</label>
+						<label><input type="checkbox" v-model="gv.m_display_selected_object" /> selected object</label>
+					</p>
+				</details>
+				<details>
+					<summary>debug</summary>
+					<p>
+						<div><label><input type="checkbox" v-model="gv.m_display_debug_info" /> debug info</label></div>
+
+						<div><label><input type="checkbox" v-model="gv.m_display_physics_debug" /> physics debug</label></div>
+						
+						<div v-for="flagName in gv.m_debugDraw.flagNames">
+							<label><input type="checkbox" v-model.number="gv.m_debugDraw[flagName]" /> {{flagName.slice(5)}}</label>
+						</div>
+						<div>
+							<label>axis length <input type="number" v-model="gv.m_debugDraw.axis_length" step="0.1" /></label>
+						</div>
+					</p>
+				</details>
+			</template>
 		</ui-dialog>
 
 		<transition name="fade">
-			<ui-dialog ref="character_list" v-show="wnds.character_list.visable" :position="wnds.character_list.pos" width="16.1em" height="50vh">
+			<ui-dialog :title="wnds.character_list.name" ref="character_list" v-show="wnds.character_list.visable">
 				<template slot="header">
 					Characters
 					<template v-if="progressMaximum">
@@ -66,31 +96,51 @@
 					</template>
 				</template>
 				<template slot="content">
-					<div :style="{filter: 'blur(' + (progressMaximum?3:0) + 'px)'}">
-						<div>
-							<span>{{charaList.length}} characters</span>
-							<div class="chara-ls-btn-group">
-								<button @click="addNewChara" class="chara-ls-btn" title="Add new"><img src="/images/toolstrip_character.png" alt="Add new" /></button>
-								<button @click="addCloneChara" class="chara-ls-btn" title="Add clone"><img src="/images/toolstrip_duplicate.png" alt="Add clone" /></button>
-								<button @click="loadCharacters" class="chara-ls-btn" title="Load"><span class="ui-icon ui-icon-folder-open" alt="📂"></span></button>
-								<button @click="saveCharacters" class="chara-ls-btn" title="Save all"><img src="/images/toolstrip_save_all.png" alt="Save all" /></button>
+					<div style="width: 100%; height: 100%;">
+						<div :style="{filter: 'blur(' + (progressMaximum?3:0) + 'px)', display: 'table', width: '100%', height: '100%'}">
+							<div style="display: table-row; height: 0;">
+								<span>{{charaList.length}} characters</span>
+								<div class="chara-ls-btn-group">
+									<button @click="addNewChara" class="chara-ls-btn" title="Add new"><img src="images/toolstrip_character.png" alt="Add new" /></button>
+									<button @click="addCloneChara(chara)" class="chara-ls-btn ui-no-interactions" title="Add clone"><img src="images/toolstrip_duplicate.png" alt="Clone" /></button>
+									<button @click="deleteCharacter(chara)" class="chara-ls-btn ui-no-interactions" title="Delete"><span class="ui-icon ui-icon-trash" alt="Delete"></span></button>
+									<button @click="loadCharacters" class="chara-ls-btn" title="Load"><span class="ui-icon ui-icon-folder-open" alt="📂"></span></button>
+									<button @click="saveCharacters" class="chara-ls-btn" title="Save all"><img src="images/toolstrip_save_all.png" alt="Save all" /></button>
+								</div>
+							</div>
+							<div style="display: table-row; width: 100%; height: 100%;">
+								<ui-sortable :items="charaList" @input="oninput_sort" class="ui-character-list" style="overflow: auto; width: 100%; height: 100%; margin: 0; position: relative;">
+									<template slot-scope="{item, index}">
+										<li :id="item.id" @mousedown.left="selectChara(item.id)" :class="[(selected == item.id ? 'active':''), item.id].join(' ')" :title="item.id" :key="item.id">
+											<table>
+												<tr @contextmenu.prevent="openCharacterDLMenu($event, item.id)">
+													<td title="順序" style="text-align: center;">
+														<div v-if="index">
+															<span class="chara-ls-btn ui-no-interactions" @click="moveCharacterOrder(item, index - 1)">▲</span>
+														</div>
+														<div>{{index}}</div>
+														<div v-if="index!=(charaList.length-1)">
+															<span class="chara-ls-btn ui-no-interactions" @click="moveCharacterOrder(item, index + 1)">▼</span>
+														</div>
+													</td>
+													<td>
+														<div>
+															<div class="ui-no-interactions">
+																<input v-if="item.renderer.pause" type="text" v-model="item.id" placeholder="名字" style="width: 90%;" />
+																<span v-else title="暫停後可改名">{{item.id}}</span>
+															</div>
+														</div>
+													</td>
+													<td style="position: relative;">
+														<ui-character :chara="item.renderer"></ui-character>
+													</td>
+												</tr>
+											</table>
+										</li>
+									</template>
+								</ui-sortable>
 							</div>
 						</div>
-						<ui-sortable :items="charaList" @input="oninput_sort" class="ui-character-list">
-							<template slot-scope="{item, index}">
-								<li :id="item.id" @mousedown.left="selectChara(item.id)" :class="[(selected == item.id ? 'active':''), item.id].join(' ')" :title="item.id" :key="item.id">
-									<table style="width:100%;">
-										<tr @contextmenu.prevent="openCharacterDLMenu($event, item.id);">
-											<td>{{index}}</td>
-											<td>{{item.id}}</td>
-											<td style="position: relative;">
-												<ui-character :chara="item.renderer"></ui-character>
-											</td>
-										</tr>
-									</table>
-								</li>
-							</template>
-						</ui-sortable>
 					</div>
 					<div v-if="progressMaximum" class="loading">
 						<div>
@@ -103,20 +153,20 @@
 		</transition>
 			
 		<transition name="fade">
-			<ui-dialog ref="character_list" v-show="wnds.character_attribute.visable" :position="wnds.character_attribute.pos" width="20em" height="50vh">
+			<ui-dialog :title="wnds.character_renderer.name" ref="character_renderer" v-show="wnds.character_renderer.visable">
 				<template slot="header">
-					Character attribute
+					Character renderer
 				</template>
 				<template slot="content">
 					<div v-if="chara!=null">
-						<ui-character-attribute :sceneChara="chara"></ui-character-attribute>
+						<ui-character-renderer :sceneChara="chara"></ui-character-renderer>
 					</div>
 				</template>
 			</ui-dialog>
 		</transition>
 		
 		<transition name="fade">
-			<ui-dialog ref="spawnpoint" v-show="wnds.spawnpoint.visable" :position.sync="wnds.spawnpoint.pos" height="50vh">
+			<ui-dialog :title="wnds.spawnpoint.name" ref="spawnpoint" v-show="wnds.spawnpoint.visable">
 				<template slot="header">
 					Spawn point
 				</template>
@@ -127,25 +177,27 @@
 		</transition>
 			
 		<transition name="fade">
-			<ui-equip-box ref="equip_box"
-						  v-show="wnds.equip_box.visable"
-						  :position="wnds.equip_box.pos"
-						  width="20em"
-						  :height="400"
-						  @clickItem="clickItem"
-						  @hoverItem="hoverItem"
-						  @mouseleaveItem="mouseleaveItem"
-						  @faceColor="faceColor"
-						  @hairColor="hairColor"
-						  @hairColor2="hairColor2"
-						  @hairMix2="hairMix2"
-						  >
-			</ui-equip-box>
+			<ui-dialog :title="wnds.equip_box.name" ref="equip_box" v-show="wnds.equip_box.visable">
+				<template slot="header">
+					Equip box
+				</template>
+				<template slot="content">
+					<ui-equip-box @clickItem="clickItem"
+								  @hoverItem="hoverItem"
+								  @mouseleaveItem="mouseleaveItem"
+								  @faceColor="faceColor"
+								  @hairColor="hairColor"
+								  @hairColor2="hairColor2"
+								  @hairMix2="hairMix2"
+								  >
+					</ui-equip-box>
+				</template>
+			</ui-dialog>
 		</transition>
 		
 		<transition name="fade">
 			<template v-if="mapEditorMode.startsWith('layered')">
-				<ui-dialog v-show="wnds.debug_window.visable" :position="wnds.debug_window.pos" width="40vw" height="70vh">
+				<ui-dialog :title="wnds.debug_window.name" ref="debug_window" v-show="wnds.debug_window.visable">
 					<template slot="header">
 						<select v-model="mapEditorMode">
 							<option value="background">background</option>
@@ -159,7 +211,7 @@
 					<template slot="content">
 						<div v-if="scene_map() && scene_map()[mapEditorMode].length" :style="wnd_debug_style">
 							<div style="background: white;">
-								<input v-model="wnd_debug_style.background" type="color" />
+								<input v-model="wnd_debug_style.background" type="color" title="window background color" />
 								<label>layer <select v-model="selectedLayer">
 										<option v-for="layer in scene_map()[mapEditorMode].length">{{layer - 1}}</option>
 									</select>
@@ -173,7 +225,7 @@
 				</ui-dialog>
 			</template>
 			<template v-else>
-				<ui-dialog v-show="wnds.debug_window.visable" :position="wnds.debug_window.pos" width="40vw" height="70vh">
+				<ui-dialog :title="wnds.debug_window.name" v-show="wnds.debug_window.visable">
 					<template slot="header">
 						<select v-model="mapEditorMode">
 							<option value="background">background</option>
@@ -217,6 +269,23 @@
 				</template>
 			</ui-menu>
 		</transition>
+		
+		<!--<transition name="fade">
+			<ui-dialog :title="wnds.player_data.name" ref="player_data" v-show="wnds.player_data.visable">
+				<template slot="header">
+					Player data
+				</template>
+				<template slot="content">
+					<input type="text" v-if="chara" v-model="chara.id" placeholder="名字" />
+					<input type="text" v-else placeholder="loading..." />
+				</template>
+			</ui-dialog>
+		</transition>-->
+		
+		<!--<ui-dialog title="chara.id" :options="{ hasHeader: false, resizable: false }">
+			<input type="text" v-if="chara" v-model="chara.id" placeholder="名字" />
+			<input type="text" v-else placeholder="loading..." />
+		</ui-dialog>-->
 	</div>
 </template>
 
@@ -232,14 +301,14 @@
 	import UIEquipBox from './ui-equip-box.vue';
 	import UICharacter from './ui-character.vue';
 	import UICharacterSVG from './ui-character-svg.vue';
-	import UICharacterAttribute from './ui-character-attribute.vue';
+	import UICharacterRenderer from './ui-character-renderer.vue';
 
 	import UIMobList from "./ui-mob-list.vue";
 	import UIMapEditor from "./ui-map-editor.vue";
 
 	//import { GameStateManager } from '../game/GameState.js';
 
-	import { ItemCategoryInfo } from '../../public/resource.js';
+	import { ItemCategoryInfo } from '../../public/javascripts/resource.js';
 	import { BaseSceneCharacter, SceneCharacter, SceneRemoteCharacter } from '../game/SceneCharacter.js';
 
 	import { engine } from '../game/Engine.js';
@@ -281,6 +350,79 @@
 			//},
 		},
 		actions: {
+			moveCharaOrder: function (context, payload) {
+				const state = context.state;
+				
+				if (state.charaList.length <= 1) {
+					return;
+				}
+				const { id = payload.name, moveTo } = payload;//id === name
+				
+				let move_chara;
+				for (let i = 0; i < state.charaList.length; ++i) {
+					const chara = state.charaList[i];
+					if (chara.id == id) {
+						if (chara.$remote) {
+							return false;
+						}
+						else {
+							move_chara = state.charaList.splice(i, 1)[0];
+							break;
+						}
+					}
+				}
+				if (move_chara) {
+					state.charaList.splice(moveTo, 0, move_chara);
+					return true;
+				}
+				else {
+					throw new Error("");
+				}
+			},
+			deleteCharacter: function (context, payload) {
+				const state = context.state;
+				
+				//no delete default character
+				if (state.charaList.length <= 1) {
+					return;
+				}
+				const { id = payload.name } = payload;//id === name
+				
+				let delete_chara;
+				for (let i = 0; i < state.charaList.length; ++i) {
+					const chara = state.charaList[i];
+					if (chara.id == id) {
+						if (chara.$remote && !payload.leave) {
+							return false;
+						}
+						else {
+							delete_chara = state.charaList.splice(i, 1)[0];
+							break;
+						}
+					}
+				}
+				if (delete_chara) {
+					if (delete_chara.$physics) {
+						delete_chara.$physics._destroy();
+					}
+
+					//??
+					if (!delete_chara.$remote) {
+						delete_chara.$physics = null;
+						delete_chara.renderer = null;
+					}
+					
+					if (state.charaList.length) {
+						context.dispatch('selectChara', {
+							id: state.charaList[state.charaList.length - 1].id,
+						});
+					}
+					return true;
+				}
+				else {
+					throw new Error("");
+				}
+			},
 			isIdExist: function (context, payload) {
 				const state = context.state;
 				if (payload && payload.id) {
@@ -295,6 +437,7 @@
 				return false;
 			},
 			sortCharaById: function (context, payload) {
+				debugger;
 				const state = context.state;
 				state.charaList = state.charaList.sort((a, b) => {
 					const na = get_n(a.id);
@@ -322,6 +465,7 @@
 					}
 				}
 				if (index >= 0) {
+					/** @type {SceneCharacter} */
 					const selected_chara = state.charaList[index];
 					if (selected_chara.$remote) {
 						return;
@@ -329,11 +473,15 @@
 
 					try {
 						if (state.chara) {
-							delete state.chara.$physics;
+							state.chara.enablePhysics = false;
 						}
 						//
-						delete selected_chara.$physics;
-						selected_chara.$physics = scene_map.controller.player;
+						selected_chara.enablePhysics = true;
+						if (selected_chara.$physics) {
+							const x = selected_chara.renderer.x / $gv.CANVAS_SCALE;
+							const y = selected_chara.renderer.y / $gv.CANVAS_SCALE;
+							selected_chara.$physics.setPosition(x, y, true);
+						}
 					}
 					catch(ex) {
 						debugger;
@@ -355,6 +503,9 @@
 					await chara.renderer.__synchronize();
 
 					state.charaList.push(chara);
+					if (chara.$physics.__ob__) {
+						throw new Error("should not reactivity");
+					}
 
 					context.dispatch('selectChara', {
 						id: chara.id,
@@ -367,7 +518,17 @@
 				debugger;
 			},
 			_createChara: async function (context, payload) {
-				if (window.$io && payload.remote_chara) {
+				const scene_map = window.scene_map;
+				try {
+					if (scene_map && scene_map.$promise) {
+						await scene_map.$promise;
+					}
+				}
+				catch (ex) {
+					throw ex;
+				}
+				
+				if (window.$io && payload && payload.remote_chara) {
 					//alert("dont use _createChara in online mode");
 					//return;
 					payload.emplace = payload.remote_chara;
@@ -377,13 +538,36 @@
 				context.commit("increaseId");
 				const id = context.getters.lastId;
 
+				/** @type {SceneCharacter} */
 				let chara;
 
-				if (payload.remote_chara) {
-					chara = new SceneRemoteCharacter();
+				//const handler = {
+				//	defineProperty(target, key, descriptor) {
+				//		if (key == "$physics") {
+				//			debugger;
+				//		}
+				//		return Reflect.defineProperty(...arguments);
+				//	},
+				//	set(target, key, descriptor) {
+				//		if (key == "$physics") {
+				//			debugger;
+				//		}
+				//		return Reflect.set(...arguments);
+				//	},
+				//	ownKeys(target, key, descriptor) {
+				//		if (key == "$physics") {
+				//			debugger;
+				//		}
+				//		return Reflect.ownKeys(...arguments);
+				//	},
+				//};
+				if (payload && payload.remote_chara) {
+					chara = new SceneRemoteCharacter(window.scene_map);
+					//chara = new Proxy(new SceneRemoteCharacter(window.scene_map), handler);
 				}
 				else {
-					chara = new SceneCharacter();
+					chara = new SceneCharacter(window.scene_map);
+					//chara = new Proxy(new SceneCharacter(window.scene_map), handler);
 				}
 				chara.id = id;
 
@@ -408,9 +592,18 @@
 					chara.renderer._setup_test();
 				}
 
-				return await context.dispatch('_addChara', {
+				let result = await context.dispatch('_addChara', {
 					chara: chara,
 				});
+				
+				if (scene_map) {
+					scene_map.addChara(result);
+				}
+				else {
+					debugger;
+				}
+				
+				return result;
 			},
 			createChara: async function (context, payload) {
 				context.commit("increaseProgressMax", { amount: 2 });
@@ -491,29 +684,28 @@
 				wnd_debug_style: { background: "#ffffff", padding: "0 0.5em" },
 
 				wnds: {
-					menu: { name: "$menu", visable: true, pos: { x: 0, y: 0 } },
-					character_list: { name: "Characters", visable: true, pos: { x: 900 * scr_rat_x, y: 220 * scr_rat_y } },
-					character_attribute: { name: "Character attribute", visable: true, pos: { x: 900 * scr_rat_x, y: 0 * scr_rat_y } },
-					equip_box: { name: "Equip box", visable: true, pos: { x: 0 * scr_rat_x, y: 50 * scr_rat_y } },
-					spawnpoint: { name: "Spawn point", visable: false, pos: { x: 350 * scr_rat_x, y: 0 * scr_rat_y } },
-					debug_window: {
-						name: "Map editor (Debug)",
-						visable: false,
-						pos: { x: 0 * scr_rat_x, y: 100 * scr_rat_y },
-					},
+					menu: { name: "$menu", visable: true },
+					character_list: { name: "Characters", visable: true },
+					character_renderer: { name: "Character renderer", visable: true },
+					equip_box: { name: "Equip box", visable: true },
+					spawnpoint: { name: "Spawn point", visable: true },
+					debug_window: { name: "Map editor (Debug)", visable: true, },
 				},
+
+				gv: $gv,
 			}
 		},
-		computed: {
-			...Vuex.mapState({
+		computed: Object.assign(
+			Vuex.mapState({
 				charaList: "charaList",	// chara[]
 				selected: "selected",	// charaId
 				chara: "chara",			// current chara
 				progressValue: "progressValue",
 				progressMaximum: "progressMaximum",
 			}),
-			$gv: () => $gv,
-		},
+			{
+			}
+		),
 		methods: {
 			scene_map: function () {
 				return window.scene_map;
@@ -537,13 +729,22 @@
 				console.log("create new character");
 				this.$store.dispatch('createChara');
 			},
-			addCloneChara: function () {
-				if (!this.chara) {
-					return;
-				}
-				console.log("clone character: " + this.chara.id);
+			addCloneChara: function (chara) {
+				console.log("clone character: " + chara.id);
 				this.$store.dispatch('createChara', {
-					chara: this.chara
+					chara: chara
+				});
+			},
+			moveCharacterOrder: function (chara, moveTo) {
+				this.$store.dispatch('moveCharaOrder', {
+					id: chara.id,
+					moveTo: moveTo,
+				});
+			},
+			deleteCharacter: function (chara) {
+				console.log("delete character: " + chara.id);
+				this.$store.dispatch('deleteCharacter', {
+					id: chara.id,
 				});
 			},
 			oninput_sort: function (value) {
@@ -597,21 +798,14 @@
 				this.$hairMixColor2(params);
 			},
 
-			clickItem: async function (payload) {
+			clickItem: function (payload) {
 				let { id, category, equip } = payload;
 
 				if (this.chara) {
-					if (window.$io) {
-						let result = await this.chara.useItem(id, category);
-						if (result) {
-							console.log("can't use item: " + id);
-							return;
-						}
-					}
-					if (!this.chara.renderer.unuse(id)) {
+					if (!ItemCategoryInfo.isEquip(id) || !this.chara.renderer.unuse(id)) {
 						this.$store.commit("increaseProgressMax", { amount: 2 });
 						try {
-							this.chara.renderer.use(id, category, equip);
+							this.chara.useItem(id, category, equip);
 						}
 						catch (ex) {
 							this.$store.commit("increaseProgressMax", { amount: -2 });
@@ -620,7 +814,11 @@
 						}
 						this.$store.commit("increaseProgress", { amount: 1 });
 						try {
-							await this.chara.renderer.__synchronize(0);
+							//TODO: synchronize chair
+							this.chara.renderer.__synchronize(0).then(() => {
+								this.$store.commit("increaseProgress", { amount: 1 });
+								app.updateScreen();
+							});
 						}
 						catch (ex) {
 							this.$store.commit("increaseProgress", { amount: 1 });//force exit
@@ -628,8 +826,6 @@
 							debugger;
 							throw ex;
 						}
-						this.$store.commit("increaseProgress", { amount: 1 });
-						app.updateScreen();
 					}
 				}
 				//this.$emit("hoverItem", payload);
@@ -642,14 +838,13 @@
 			},
 
 			openCharacterDLMenu: function (e, id) {
-				let vm = this;
-				vm.$store.dispatch("selectChara", {
+				this.$store.dispatch("selectChara", {
 					id: id
-				}).then(function () {
-					vm.is_show_chara_dl_menu = true;
+				}).then(() => {
+					this.is_show_chara_dl_menu = true;
 
-					vm.$nextTick(function () {
-						vm.$refs.chara_dl_menu.setPosition({
+					this.$nextTick(() => {
+						this.$refs.chara_dl_menu.setPosition({
 							my: "left top",
 							of: e,
 							//collision: "fit",
@@ -660,8 +855,7 @@
 				});
 			},
 			closeCharacterDLMenu: function () {
-				let vm = this;
-				vm.is_show_chara_dl_menu = false;
+				this.is_show_chara_dl_menu = false;
 				//console.log("closeCharacterDLMenu");
 			},
 			copyCharaCode: function () {
@@ -672,6 +866,76 @@
 				this.chara.renderer._save_as_png(engine, this.chara.id);
 			},
 		},
+		mounted: function () {
+			{
+				const elem = document.getElementById("bgm");
+				this.$refs.bgm_outer.appendChild(elem);
+			}
+			
+			//set dialog position and size
+			{
+				const scr_rat_x = $gv.is_mobile ? 0 : (window.innerWidth / 1366);
+				const scr_rat_y = $gv.is_mobile ? 0 : (window.innerHeight / 768);
+				
+				this.$refs.menu.setStyle({
+					left: _to_css_px(0),
+					top: _to_css_px(0),
+					width: _to_css_px(310),
+					height: _to_css_px(360),
+					minWidth: _to_css_px(310),
+				});
+				
+				this.$refs.character_list.setStyle({
+					left: _to_css_px(350 * scr_rat_x),
+					top: _to_css_px(0 * scr_rat_y),
+					width: CSS.em(16.1),
+					height: CSS.vh(34),
+					minWidth: CSS.em(16.1),
+				});
+				
+				this.$refs.character_renderer.setStyle({
+					left: _to_css_px(900 * scr_rat_x),
+					top: _to_css_px(0 * scr_rat_y),
+					width: CSS.em(19),
+					height: CSS.vh(30),
+					minWidth: CSS.em(19),
+				});
+				
+				this.$refs.equip_box.setStyle({
+					left: _to_css_px(0 * scr_rat_x),
+					top: _to_css_px(50 * scr_rat_y),
+					width: CSS.em(20),
+					height: _to_css_px(400),
+					minWidth: CSS.em(20),
+				});
+				
+				this.$refs.spawnpoint.setStyle({
+					left: _to_css_px(350 * scr_rat_x),
+					top: _to_css_px(0 * scr_rat_y),
+					width: _to_css_px(600),
+					height: CSS.vh(26),
+					minWidth: _to_css_px(400),
+				});
+				this.wnds.spawnpoint.visable = false;
+				
+				this.$refs.debug_window.setStyle({
+					left: _to_css_px(0 * scr_rat_x),
+					top: _to_css_px(100 * scr_rat_y),
+					width: CSS.vw(40),
+					height: CSS.vh(70),
+					minWidth: CSS.em(16),
+				});
+				this.wnds.debug_window.visable = false;
+				
+				function _to_css_px(val) {
+					return CSS.px(Math.trunc(val));
+				}
+			}
+		},
+		beforeDestroy: function () {
+			const elem = document.getElementById("bgm");
+			document.getElementById("hidden_components").appendChild(elem);
+		},
 		components: {
 			"ui-draggable": UIDraggable,
 			"ui-dialog": UIDialog,
@@ -681,7 +945,7 @@
 
 			"ui-character": UICharacter,
 			"ui-character-svg": UICharacterSVG,
-			"ui-character-attribute": UICharacterAttribute,
+			"ui-character-renderer": UICharacterRenderer,
 			"ui-equip-box": UIEquipBox,
 
 			"ui-mob-list": UIMobList,
@@ -718,13 +982,14 @@
 		padding: 0;
 	}
 
-	.ui-character-list > li {
-		width: 16em;
+	.ui-character-list li {
+		width: 100%;
 	}
 
 	.ui-character-list table {
 		width: 100%;
-		/*border-collapse: collapse;*/
+		border-collapse: collapse;
+		border-spacing: 0;
 	}
 	
 	.ui-character-list td:nth-child(1) {
@@ -751,10 +1016,17 @@
 		float: right;
 	}
 	.chara-ls-btn {
-	    display: inline-flex;
-		width: 20px;
-		height: 20px;
+		display: inline-flex;
 		padding: 0;
+		background: none;
+		border: 1px solid transparent;
+		text-align: center;
+	}
+	.chara-ls-btn:hover {
+		border: 1px solid gray;
+		box-shadow: inset 0 0 4px 0px darkgrey;
+		background: linear-gradient(to bottom, #eee1 0%,#ccca 100%);
+		border-radius: 5px;
 	}
 	.chara-ls-btn > * {
 		margin: auto;

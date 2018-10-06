@@ -9,12 +9,23 @@ window.m_draw_animation_texture_info = false;
 
 class IAnimation {
 	constructor(raw, url) {
-		this._raw = raw;
-		this._url = url;
+		this._raw = null;
+		this._url = null;
+		
+		Object.defineProperties(this, {
+			_raw: {
+				value: raw
+			},
+			_url: {
+				value: url
+			},
+		});
 
 		this.frame = 0;
 		this.time = 0;
-		this.delta = 0;//total time
+
+		/** elapsed time */
+		this.delta = 0;
 
 		/** @type {Sprite[]} */
 		this.textures = [];
@@ -24,6 +35,14 @@ class IAnimation {
 		
 		/** @type {boolean} */
 		this.is_end = false;
+
+		if (!raw && !this._url) {
+			debugger;
+		}
+	}
+
+	getTotalTime() {
+		return this.textures.reduce((pv, cv) => pv + cv.delay, 0);
 	}
 	
 	clone() {
@@ -42,7 +61,14 @@ class IAnimation {
 	update(stamp) {
 		throw new Error("Not implement");
 	}
-	
+
+	/** reset frame */
+	_resetFrame() {
+		this.frame = 0;
+		this.time = 0;
+	}
+
+	/** restart */
 	reset() {
 		this.frame = 0;
 		this.time = 0;
@@ -52,8 +78,13 @@ class IAnimation {
 	get texture() {
 		throw new Error("Not implement");
 	}
-	
+
+	/**
+	 * remove at nextStep
+	 */
 	destroy() {
+		this.is_loop = false;//防止重複
+		this.is_end = true;
 	}
 }
 
@@ -69,17 +100,17 @@ export class AnimationBase extends IAnimation {
 		super(raw, url);
 	}
 
-	/**
-	 * @returns {Promise<Sprite>}
-	 */
-	async load() {
+	load() {
+		if (!this._raw) {
+			//this._raw = await $get.data(this._url);
+		}
 
 		for (let i = 0; i in this._raw; ++i) {
-			let url = this._url + "/" + i;
+			//let url = this._url + "/" + i;
 
 			let texture = new Sprite(this._raw[i]);
 
-			texture._url = "/images" + url;
+			//texture._url = url;
 
 			this.textures[i] = texture;
 		}
@@ -90,6 +121,10 @@ export class AnimationBase extends IAnimation {
 			}
 		}
 	}
+	
+	isEnd() {
+		return this.is_end;
+	}
 
 	/**
 	 * aways loop
@@ -98,7 +133,7 @@ export class AnimationBase extends IAnimation {
 	_update(stamp) {
 		const fc = this.textures.length;
 
-		if (fc > 1) {
+		if (fc > 0) {//??
 			this.time = this.time + stamp;
 
 			if (this.time > this.texture.delay) {
@@ -117,7 +152,7 @@ export class AnimationBase extends IAnimation {
 	update(stamp) {
 		const fc = this.textures.length;
 
-		if (fc > 1) {
+		if (fc > 0) {//??
 			this.time = this.time + stamp;
 
 			if (this.time > this.texture.delay) {
@@ -127,6 +162,9 @@ export class AnimationBase extends IAnimation {
 						this.reset();//make loop
 					}
 					else {
+						//防止錯誤
+						this.frame = fc - 1;//this._resetFrame();
+
 						this.is_end = true;
 						return;
 					}
@@ -137,9 +175,15 @@ export class AnimationBase extends IAnimation {
 		
 		this.delta += stamp;
 	}
-	
-	isEnd() {
-		return this.is_end;
+
+	/**
+	 * @param {IRenderer} renderer - GraphLayerRenderer
+	 * @param {number} x
+	 * @param {number} y
+	 */
+	draw(renderer, x, y, angle, flip) {
+		let texture = this.texture;
+		renderer.drawRotaGraph(texture, x, y, angle, flip);
 	}
 	
 	get texture() {
@@ -155,16 +199,6 @@ export class Animation extends AnimationBase {
 		super(raw, url);
 
 		this.draw = this._draw_and_preload;
-	}
-
-	/**
-	 * @param {IRenderer} renderer - GraphLayerRenderer
-	 * @param {number} x
-	 * @param {number} y
-	 */
-	draw(renderer, x, y, angle, flip) {
-		let texture = this.texture;
-		renderer.drawRotaGraph(texture, x, y, angle, flip);
 	}
 
 	/**

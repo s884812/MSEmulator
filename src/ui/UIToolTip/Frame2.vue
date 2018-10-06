@@ -1,46 +1,72 @@
 
 <template>
 	<ui-draggable :zIndex="zIndex" :position="position">
-		<div v-if="is_show" class="header frame" @mousedown.left="requireOrder($event)">
-			<div class="frame-warp">
-				<table class="frame-inner">
-					<tr>
-						<td class="nw"></td>
-						<td class="n"></td>
-						<td class="ne"></td>
-					</tr>
-					<tr>
-						<td class="w"></td>
-						<td class="c"></td>
-						<td class="e"></td>
-					</tr>
-					<tr>
-						<td class="sw"></td>
-						<td class="s"></td>
-						<td class="se"></td>
-					</tr>
-				</table>
+		<gui-root ref="gui_root" p="/UI/UIToolTip/Item/Frame2">
+			<div v-if="is_show" class="header frame" @mousedown.left="requireOrder($event)">
+				<div v-if="guiData" class="frame-warp">
+					<table class="frame-inner">
+						<tr>
+							<td :style="_getImgStyle('nw',true,true,false)"></td>
+							<td :style="_getImgStyle('n',false,true,true)"></td>
+							<td :style="_getImgStyle('ne',true,true,false)"></td>
+						</tr>
+						<tr>
+							<td :style="_getImgStyle('w',true,false,true)"></td>
+							<td :style="_getImgStyle('c',false,false,true)"></td>
+							<td :style="_getImgStyle('e',true,false,true)"></td>
+						</tr>
+						<tr>
+							<td :style="_getImgStyle('sw',true,true,false)"></td>
+							<td :style="_getImgStyle('s',false,true,true)"></td>
+							<td :style="_getImgStyle('se',true,true,false)"></td>
+						</tr>
+					</table>
+				</div>
+				<div ref="content" class="header content">
+					<div v-for="(value, index) in [...html].reverse()" v-html="value" :class="'z'+(html.length-index)"></div><!---->
+					<slot></slot>
+				</div>
 			</div>
-			<div ref="content" class="header content">
-				<div v-for="(value, index) in [...html].reverse()" v-html="value" :class="'z'+(html.length-index)"></div><!---->
-				<slot></slot>
-			</div>
-		</div>
+		</gui-root>
 	</ui-draggable>
-</template>
+</template>
+
 <script>
 	import UIDraggable from "../../components/ui-draggable.vue";
 	import UIDialog from "../../components/ui-dialog.vue";
+
+	import BasicComponent from "../BasicComponent.vue";
+	
 	
 	export default {
-		mixins: [UIDialog],
+		mixins: [UIDialog, BasicComponent],
 		data: function() {
 			return {
 				html: [],
 				is_show: false,
+				guiData: null,
+				zIndex: 0,
 			};
 		},
 		methods: {
+			__set_z_index: function (z) {
+				this.zIndex = z;
+			},
+			_getImgStyle: function (p, h, v, repeat) {
+				let path, img, data = this.guiData, s = {};
+				if (data && (img = data[p]) && (path = img[""])) {
+					if (h) {
+						s.width = img.__w + "px";
+					}
+					if (v) {
+						s.height = img.__h + "px";
+					}
+					let src = $get.imageUrl(path);
+					s.background = `url(${src}) ${repeat ? "repeat" : "no-repeat"}`;
+					return s;
+				}
+				return s;
+			},
 			show: function (cbfunc) {
 				this.is_show = true;
 				if (cbfunc) {
@@ -82,8 +108,9 @@
 				}
 			},
 		},
-		mounted: function () {
+		mounted: async function () {
 			this.hide();
+			this.guiData = await this.$refs.gui_root._$promise;
 		},
 		components: {
 			"ui-draggable": UIDraggable,
@@ -121,48 +148,6 @@
 	}
 	.frame-inner tr, .frame-inner td {
 		padding: 0;
-	}
-	
-	.nw {
-		width: 13px;
-		height: 13px;
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/nw) no-repeat;
-	}
-	.n {
-		height: 13px;
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/n) repeat;
-	}
-	.ne {
-		width: 13px;
-		height: 13px;
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/ne) no-repeat;
-	}
-	
-	.w {
-		width: 13px;
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/w) repeat;
-	}
-	.c {
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/c) repeat;
-	}
-	.e {
-		width: 13px;
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/e) repeat;
-	}
-	
-	.sw {
-		width: 13px;
-		height: 13px;
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/sw) no-repeat;
-	}
-	.s {
-		height: 13px;
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/s) repeat;
-	}
-	.se {
-		width: 13px;
-		height: 13px;
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/se) no-repeat;
 	}
 	
 	.content {

@@ -20,12 +20,11 @@ import { } from "./util.js";
 import Vue from "vue";
 import Vuex from "vuex";
 
+Vue.config.productionTip = false;
+Vue.use(Vuex);
+
 window.jQuery = jQuery;
 window.$ = jQuery;
-
-Vue.config.productionTip = false;
-
-Vue.use(Vuex);
 
 if (!window.onwheel) {
 	window.onwheel = function () {
@@ -39,7 +38,8 @@ export function AddInitTask(task) {
 }
 
 export function InitAll() {
-	let a = Promise.all(init_tasks);
+	let promise_list = init_tasks.map(f => f());
 	init_tasks = [];
+	let a = Promise.all(promise_list);
 	return a;
 }

@@ -1,9 +1,10 @@
 ﻿
 <template>
 	<div v-if="chara != null" class="frame">
-		<div class="center">
+		<div class="center" :style="style_transform">
 			<template v-for="ft in frag_list">
-				<img :src="get_ft_src(ft)"
+				<img v-if="ft.relative"
+					 :src="get_ft_src(ft)"
 					 :class="ft.classList"
 					 :style="get_ft_style(ft)" />
 			</template>
@@ -69,13 +70,13 @@
 	*/
 
 	export default {
-		props: ['chara'],
+		props: ["chara", "allowRotate"],
 		computed: {
 			frag_list: {
 				get: function () {
 					const chara = this.chara;
 					let arr = [];
-
+					
 					chara.__forceUpdate();
 
 					for (let i in this.chara.__frag_list) {
@@ -86,24 +87,42 @@
 							if (ft.graph3 && ft.graph3.texture) arr.push(ft.graph3);
 						}
 					}
+
 					return arr;
 				},
 				set: function (newVal) {
 				}
-			}
+			},
+			style_transform: function () {
+				const chara = this.chara;
+				let transform = "";
+
+				if (chara.front > 0) {
+					transform += "rotateY(180deg)";
+				}
+
+				if (this.allowRotate && chara.angle) {
+					transform += `rotateZ(${chara.angle}rad)`;
+				}
+
+				return {
+					transform: transform,
+				};
+			},
 		},
 		methods: {
 			get_ft_src: function (ft) {
-				return ft._url;l//ft.texture.src;
+				return ft.texture.src;
 			},
 			get_ft_style: function (ft) {
 				let style = {
-					left: ft.relative.x + 'px',
-					top: ft.relative.y + 'px',
+					left: ft.relative.x + "px",
+					top: ft.relative.y + "px",
 					opacity: ft.opacity,
-					width: ft.width + 'px',
-					height: ft.height + 'px',
+					width: ft.width + "px",
+					height: ft.height + "px",
 					filter: ft.filter.toString(),
+					visibility: ft.visible ? "visible" : "hidden",
 				};
 
 				return style;

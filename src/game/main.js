@@ -3,6 +3,7 @@ import { } from './init.js';
 import { Vec2, Rectangle } from './math.js';
 import { IGraph, IRenderer } from './IRenderer.js';
 import { engine, Graph } from './Engine.js';
+import { Animation } from './Animation.js';
 
 import { GameStateManager } from './GameState.js';
 import { SceneMap } from './Map.js';
@@ -11,12 +12,20 @@ import { SceneMap } from './Map.js';
 import { EffectManager } from "./Skill.js";
 import { } from "./MobSkill/238.FairyDust.js";
 
+import { damageNumberLayer } from "./Renderer/DamageNumber.js";
+import { sceneRenderer, SceneRenderer } from "./Renderer/SceneRenderer.js";
+
+import { Cursor, CursorAnimationData } from "./Cursor.js";
+
+import { SceneCharacter } from "./SceneCharacter.js";//debug
+import { app as gApp } from "../index.js";//debug
+
+import { uiAnimationManager } from '../ui/UIAnimationManager.js';
+
 import { Client } from "../Client/Client.js";
 
 
-import { SceneCharacter } from "./SceneCharacter.js";//debug
-import gApp from "../app.js";//debug
-
+sceneRenderer.addLayerBack(12);
 
 window.SCREEN_PRINTLN = function (getText, getValue) {
 	if (arguments.length == 2) {
@@ -34,6 +43,30 @@ window.addEventListener("popstate", function (e) {
 	GameStateManager.PopState(e.state);
 });
 
+
+///////////////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////////////////
+
+function createCursor_clickable() {
+	let data = new CursorAnimationData();
+
+	let task1 = data.addFrameFromUrl("/UI/Basic/Cursor/0/0").then(function (i) {
+		data.frames[i].delay = 200;
+	});
+
+	let task2 = data.addFrameFromUrl("/UI/Basic/Cursor/12/0").then(function (i) {
+		data.frames[i].delay = 200;
+	});
+
+	return Promise.all([task1, task2]).then(function () {
+		data.duration = 400;
+
+		Cursor.createToCSS(data, ".ui-clickable", "pointer");
+	});
+}
+
+createCursor_clickable();
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -58,8 +91,6 @@ window.onkeydown = function (e) {
 	}
 	if (e.code == "F2") {
 		$gv.m_editor_mode = !$gv.m_editor_mode;
-
-		app.vue.editor_mode = $gv.m_editor_mode;
 	}
 }
 
@@ -225,25 +256,48 @@ export class Game {
 		}
 	}
 	
-	async _$startClient() {
+	/**
+	 * @param {string} server
+	 */
+	async _$startClient(server) {
 		if (scene_map) {
-			if (window.io != null) {
-				let client = new Client();
-				gApp.client = client;
-				client.$test();
+			let client = new Client();
+			
+			try {
+				await client.connect(server);
+				console.log("start client");
 			}
-			else {
-				let params = _parseUrlParameter();
-
-				let map_id = params["map"] || "000000000";//450003000
-				let chara_code = params["chara"] || "c,00002012,00012012,00026509|00026509,00034873|00034873,01051429,01072392";
-
-				GameStateManager.PopState({
-					map_id: map_id,
-					chara: chara_code,
-				});
+			catch (err) {
+				console.error(err);
+				console.log("start offline");
+				this._$start_offline();
+				return;
 			}
+			
+			gApp.client = client;
+			client.$test();
 		}
+		else {
+			debugger;
+		}
+	}
+	_$start_offline() {
+		let params = _parseUrlParameter();
+		let map_id;
+	
+		if (process.env.NODE_ENV === 'production') {
+			map_id = params["map"] || window.DEFAULT_MAP_ID;
+		}
+		else {
+			map_id = params["map"] || "000000000";//450003000
+		}
+	
+		let chara_code = params["chara"] || "c,00002012,00012012,00026509|00026509,00034873|00034873,01051429,01072392";
+	
+		GameStateManager.PopState({
+			map_id: map_id,
+			chara: chara_code,
+		});
 	}
 
 	/** @type {boolean} */
@@ -259,6 +313,8 @@ export class Game {
 	
 	async forceUpdateScreen() {
 		const chara = this.chara;
+		
+		this._updateScene(0);
 		
 		chara.renderer.__forceUpdate(0);
 		
@@ -287,13 +343,17 @@ export class Game {
 				if (this.fps_arr.length) {
 					let sum = this.fps_arr.reduce(function (a, b) { return a + b; });
 					let avg = sum / this.fps_arr.length;
-
+					
+					$gv.FPS = avg;
+					
 					document.getElementById("FPS").innerHTML = avg.toFixed(2);
 				}
 				if (this.frame_s_arr.length) {
 					let sum = this.frame_s_arr.reduce(function (a, b) { return a + b; });
 					let avg = sum / this.frame_s_arr.length;
-
+					
+					$gv.frameCount = avg;
+					
 					document.getElementById("frame").innerHTML = avg.toFixed(2);
 				}
 
@@ -346,43 +406,46 @@ export class Game {
 				scene_map.update(stamp);//include world.update
 			}
 
-			$gv.SceneObjectMgr.Update(stamp);
-
-			EffectManager.Update(stamp);
-
 			// before world.update ??
 			for (let i = 0; i < charaList.length; ++i) {
 				charaList[i].update(stamp);
 			}
+
+			$gv.SceneObjectMgr.Update(stamp);
+
+			EffectManager.Update(stamp);
 		}
-		{
+		if (window.$io) {
 			const client = gApp.client;//not offline character
 
 			if (client && client.chara) {
 				/** @type {SceneCharacter} */
 				const ch = client.chara;
 
-				//let dt = (this.timer - this._dTimer);
-
-				//if (dt >= (window.$REC_TIME || 60)) {
-				//	this._dTimer = this.timer;
-
-				ch.$emit(window.$io);
-				//}
-				//else if ((dt % (window.$REC_DIV || 1)) == 0) {
-				ch.$recMove();
-				//}
+				ch.$emitMovePacket();
 			}
 		}
+		
+		sceneRenderer.update(stamp);
+		
+		damageNumberLayer.update(stamp);
 	}
 	
 	_renderScene() {
+		if (this._isMapReady) {
+			this._render_map_ready();
+		}
+		else {
+			this._render_map_loading();
+		}
+	}
+	_render_map_ready() {
 		/** @type {SceneCharacter} */
 		const chara = this.chara;
 
 		/** @type {SceneCharacter[]} */
 		const charaList = this.charaList;
-
+		
 		engine.beginScene();
 		{
 			engine.loadIdentity();
@@ -400,66 +463,88 @@ export class Game {
 					$gv.m_viewRect.setCenter(px, py);
 				}
 			}
-			
-			if ($gv.m_is_rendering_map && this._isMapReady) {
-				if ($gv.m_editor_mode) {
-					this.moveViewport(false);
-				}
-				
+
+			if ($gv.m_editor_mode) {
+				this.moveViewport(false);
+			}
+			if ($gv.m_is_rendering_map) {
 				scene_map.beginRender(engine);
-				{					
+				{
 					scene_map.renderBackground(engine);
-					if (0 && window.m_display_life && scene_map._raw.info.mirror_Bottom) {
-						engine.ctx.setTransform(1, 0, 0, 1, 0, 0);
-						engine.ctx.translate(Math.trunc(-$gv.m_viewRect.x), Math.trunc(-$gv.m_viewRect.y));
-						engine.ctx.scale(1, -1);
-						for (let i = 0; i < scene_map.layeredObject.length; ++i) {
-							scene_map.renderLife(engine, i);
-						}
-					}
+					//if ($gv.m_display_life && scene_map._raw.info.mirror_Bottom) {
+					//	engine.ctx.setTransform(1, 0, 0, 1, 0, 0);
+					//	engine.ctx.translate(Math.trunc(-$gv.m_viewRect.x), Math.trunc(-$gv.m_viewRect.y));
+					//	engine.ctx.scale(1, -1);
+					//	for (let i = 0; i < scene_map.layeredObject.length; ++i) {
+					//		scene_map.renderLife(engine, i);
+					//	}
+					//}
 					for (let i = 0; i < scene_map.layeredObject.length; ++i) {
 						scene_map.renderLayeredObject(engine, i);
 						scene_map.renderLayeredTile(engine, i);
 						
 						scene_map.applyCamera(engine);
 						{
-							for (let chara_index = 0; chara_index < charaList.length; ++chara_index) {
-								if (charaList[chara_index] == chara) {
-									continue;
-								}
-								else if (charaList[chara_index].$layer == i) {
-									charaList[chara_index].render(engine);
+							if ($gv.m_display_other_player) {
+								for (let chara_index = 0; chara_index < charaList.length; ++chara_index) {
+									if (charaList[chara_index] == chara) {
+										continue;
+									}
+									else if (charaList[chara_index].$layer == i) {
+										charaList[chara_index].render(engine);
+									}
 								}
 							}
-
-							if (window.m_display_life) {
-								scene_map.renderLife(engine, i);
-							}
-
-							if (chara && chara.renderer) {
-								if (chara.$layer == i) {
+							
+							scene_map.renderLife(engine, i);
+							
+							if ($gv.m_display_player && chara) {
+								if ((chara.$layer == null || chara.$layer == i) && chara.renderer) {
 									chara.render(engine);
 								}
 							}
 							
 							$gv.SceneObjectMgr.RenderLayer(engine, i);
+							//
+							sceneRenderer.renderLayer(engine, i);
 						}
 					}
 					scene_map.applyCamera(engine);
 					{
 						for (let i = scene_map.layeredObject.length; i < 12; ++i) {
 							$gv.SceneObjectMgr.RenderLayer(engine, i);
+							//
+							sceneRenderer.renderLayer(engine, i);
 						}
 					}
 				}
 				scene_map.endRender(engine);
 			}
 			else {
-				scene_map.applyCamera(engine);
-				for (let i = 0; i < charaList.length; ++i) {
-					charaList[i].render(engine);
+				//TODO: layer
+				
+				for (let i = 0; i < sceneRenderer.layers.length; ++i) {
+					sceneRenderer.renderLayer(engine, i);
+				}
+				
+				if ($gv.m_display_other_player || $gv.m_display_player) {
+					scene_map.applyCamera(engine);
+					
+					for (let i = 0; i < charaList.length; ++i) {
+						if (charaList[i] != chara && $gv.m_display_other_player) {
+							charaList[i].render(engine);
+						}
+					}
+					if ($gv.m_display_player && chara) {
+						chara.render(engine);
+					}
+					
+					EffectManager.Render(engine);
 				}
 			}
+
+			damageNumberLayer.render(engine);
+
 			for (let i = 0; i < charaList.length; ++i) {
 				charaList[i]._$drawName(engine);
 			}
@@ -467,127 +552,146 @@ export class Game {
 				charaList[i]._$drawChatBalloon(engine);
 			}
 			
-			if ($gv.m_is_rendering_map && this._isMapReady) {
+			if ($gv.m_is_rendering_map) {
 				scene_map.beginRender(engine);
 				{
 					scene_map.applyCamera(engine);
 					{
-						if (window.m_display_portal) {
-							scene_map.renderPortal(engine);
-						}
+						scene_map.renderPortal(engine);
 					}
 					
 					scene_map.renderFrontground(engine);
 				}
 				scene_map.endRender(engine);
-
-				if (window.m_display_particle_system) {
-					scene_map.renderParticle(engine);
-				}
+				
+				scene_map.renderParticle(engine);
 
 				scene_map.applyCamera(engine);
 				{
 					EffectManager.Render(engine);
-
-					if ($gv.m_display_debug_info) {
-						/** @type {CanvasRenderingContext2D} */
-						const ctx = engine.ctx;
-						{
-							ctx.beginPath();
-
-							ctx.fillStyle = "white";
-							ctx.fillRect(0, 0, 96, 50);
-
-							ctx.fillStyle = "black";
-							ctx.fillText("map origin", 5, 14, 96);
-
-							ctx.fillText("view-x: " + $gv.m_viewRect.x.toFixed(0), 5, 30, 96);
-
-							ctx.fillText("view-y: " + $gv.m_viewRect.y.toFixed(0), 5, 46, 96);
-						}
-					}
-
-					scene_map.controller.render(engine);
 				}
 				engine.loadIdentity();
 			}
 			
-			if ($gv.m_display_debug_info) {
-				this._render_debug_info();
+			{
+				scene_map.applyCamera(engine);
+				
+				if ($gv.m_display_debug_info) {
+					/** @type {CanvasRenderingContext2D} */
+					const ctx = engine.ctx;
+					{
+						ctx.beginPath();
+
+						ctx.fillStyle = "white";
+						ctx.fillRect(0, 0, 96, 50);
+
+						ctx.fillStyle = "black";
+						ctx.fillText("map origin", 5, 14, 96);
+
+						ctx.fillText("view-x: " + $gv.m_viewRect.x.toFixed(0), 5, 30, 96);
+
+						ctx.fillText("view-y: " + $gv.m_viewRect.y.toFixed(0), 5, 46, 96);
+					}
+				}
+				scene_map.controller.render(engine);
+				
+				engine.loadIdentity();
+				
+				if ($gv.m_display_debug_info) {
+					this._render_debug_info();
+				}
 			}
 		}
 		engine.endScene();
 	}
+	_render_map_loading() {
+		const ctx = engine.ctx;
+		const screen_width = engine.screen_size.x;
+		const screen_height = engine.screen_size.y;
+		const scr_hw = screen_width * 0.5;
+		const scr_hh = screen_height * 0.5;
+		
+		ctx.font = "2em 微軟正黑體";
+		ctx.textAlign = "center";
+		ctx.textBaseline = "center";
+		
+		ctx.fillStyle = "white";
+		ctx.fillText("loading...", scr_hw, scr_hh);
+		
+		ctx.strokeStyle = "black";
+		ctx.fillText("loading...", scr_hw, scr_hh);
+	}
 
 	_render_debug_info() {
-		if (this._isMapReady && scene_map.controller && scene_map.controller.player) {
-			/** @type {CanvasRenderingContext2D} */
-			const ctx = engine.ctx;
+		if (!(scene_map.controller && scene_map.controller.player)) {
+			return;
+		}
+		/** @type {CanvasRenderingContext2D} */
+		const ctx = engine.ctx;
 
-			const ta = ctx.textAlign, tb = ctx.textBaseline, lw = ctx.lineWidth;
-			ctx.textBaseline = "top";
-			ctx.lineWidth = 2.5;
-			ctx.strokeStyle = "#000";
-			let x = 400, y = 5;
-			for (let line of window._SCREEN_PRINTLN) {
-				const val = line.getValue();
-				const text = line.getText();
+		const ta = ctx.textAlign, tb = ctx.textBaseline, lw = ctx.lineWidth;
+		ctx.textBaseline = "top";
+		ctx.lineWidth = 2.5;
+		ctx.strokeStyle = "#000";
+		let x = 400, y = 5;
+		for (let line of window._SCREEN_PRINTLN) {
+			const val = line.getValue();
+			const text = line.getText();
+
+			ctx.fillStyle = "#FFF";
+			{
+				ctx.textAlign = "right";
+				ctx.strokeText(text, x - 2, y);
+				ctx.fillText(text, x - 2, y);
+
+				ctx.textAlign = "center";
+				ctx.strokeText(":", x, y);
+				ctx.fillText(":", x, y);
+
+				ctx.textAlign = "left";
+				ctx.strokeText(val, x + 2, y);
+				ctx.fillText(val, x + 2, y);
+			}
+
+			if ("_val" in line) {
+				let _val;
+				if (line._val != val) {
+					_val = line._val;//display new value
+					line.__val = line._val;
+					line._val = val;
+				}
+				else {
+					_val = line.__val;//display old value
+				}
+				if (_val != val) {
+					ctx.fillStyle = "#0FF";
+				}
 
 				ctx.fillStyle = "#FFF";
 				{
 					ctx.textAlign = "right";
-					ctx.strokeText(text, x - 2, y);
-					ctx.fillText(text, x - 2, y);
+					ctx.strokeText(text, x - 2 + 200, y);
+					ctx.fillText(text, x - 2 + 200, y);
 
 					ctx.textAlign = "center";
-					ctx.strokeText(":", x, y);
-					ctx.fillText(":", x, y);
+					ctx.strokeText(":", x + 200, y);
+					ctx.fillText(":", x + 200, y);
 
 					ctx.textAlign = "left";
-					ctx.strokeText(val, x + 2, y);
-					ctx.fillText(val, x + 2, y);
+					ctx.strokeText(_val, x + 2 + 200, y);
+					ctx.fillText(_val, x + 2 + 200, y);
 				}
-
-				if ("_val" in line) {
-					let _val;
-					if (line._val != val) {
-						_val = line._val;//display new value
-						line.__val = line._val;
-						line._val = val;
-					}
-					else {
-						_val = line.__val;//display old value
-					}
-					if (_val != val) {
-						ctx.fillStyle = "#0FF";
-					}
-
-					ctx.fillStyle = "#FFF";
-					{
-						ctx.textAlign = "right";
-						ctx.strokeText(text, x - 2 + 200, y);
-						ctx.fillText(text, x - 2 + 200, y);
-
-						ctx.textAlign = "center";
-						ctx.strokeText(":", x + 200, y);
-						ctx.fillText(":", x + 200, y);
-
-						ctx.textAlign = "left";
-						ctx.strokeText(_val, x + 2 + 200, y);
-						ctx.fillText(_val, x + 2 + 200, y);
-					}
-				}
-				else {
-					line.__val = val;
-					line._val = val;
-				}
-
-				y += 16;
 			}
-			ctx.textAlign = ta;
-			ctx.textBaseline = tb;
-			ctx.lineWidth = lw;
+			else {
+				line.__val = val;
+				line._val = val;
+			}
+
+			y += 16;
 		}
+		ctx.textAlign = ta;
+		ctx.textBaseline = tb;
+		ctx.lineWidth = lw;
 	}
 	
 	/**
@@ -595,7 +699,7 @@ export class Game {
 	 */
 	_loop(timeStamp) {
 		const scene_map = this.scene_map;
-		let stamp = timeStamp - this.timer;
+		const stamp = timeStamp - this.timer;
 		
 		this.timer = timeStamp;
 
@@ -615,6 +719,8 @@ export class Game {
 		for (let i in $gv.input_keyUp) {
 			$gv.input_keyUp[i] = 0;
 		}
+		
+		uiAnimationManager.update(stamp);
 	}
 	
 	get chara() {

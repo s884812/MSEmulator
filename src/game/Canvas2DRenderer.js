@@ -136,6 +136,9 @@ export class Engine extends IRenderer {
 			canvas.width = width;
 			canvas.height = height;
 		}
+
+		this._graph_rect = new this.Graph();
+		this._graph_rect._url = $get.imageUrl("/1x1");
 	}
 
 	/** @type {IGraph} */
@@ -248,6 +251,11 @@ export class Engine extends IRenderer {
 		return this._globalAlpha;//this.ctx.globalAlpha;
 	}
 	set globalAlpha(value) {
+		if (process.env.NODE_ENV !== 'production') {
+			if (value < 0 || value > 1) {
+				debugger;
+			}
+		}
 		if (this._globalAlpha != value) {
 			this._globalAlpha = value;
 			this.ctx.globalAlpha = value;

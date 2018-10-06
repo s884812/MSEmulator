@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "es2018",
+    "module": "es2015",
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "inlineSourceMap": true,
+    "declaration": true,
+    "outDir": "./src/box2d.ts/build"
+  },
+  "include": [
+    "./src/box2d.ts/Box2D/**/*"
+  ]
+}

@@ -13,7 +13,7 @@ export class LifeRenderer /*extends SceneObject*/ {
 		/** @type {string} */
 		this.id = null;
 
-		/** @type {Object.<string, Animation>} */
+		/** @type {{[action:string]:Animation}} */
 		this.actions = {};
 
 		/** @type {string} */
@@ -42,9 +42,12 @@ export class LifeRenderer /*extends SceneObject*/ {
 		return this._action;
 	}
 	set action(act) {
-		this._action = act;
-		if (this.actions[act]) {
-			this.actions[act].reset();
+		let currentAnim = this.actions[this._action];
+		if (this._action != act || currentAnim.is_end) {
+			if (this.actions[act]) {
+				this._action = act;
+				this.actions[act].reset();
+			}
 		}
 	}
 
@@ -62,7 +65,7 @@ export class LifeRenderer /*extends SceneObject*/ {
 		let tasks = [];
 		let that = this;
 		this.id = id;//"8880140";//"8880141";//"8880150";//"8880151";
-		this._url = [this.constructor._base_path, this.id + ".img/"].join("/");
+		this._url = [this.constructor._base_path, this.id].join("/");
 		
 		if (!this.constructor._desc[id]) {
 			let task = this.constructor.loadDescription(id);
@@ -70,7 +73,7 @@ export class LifeRenderer /*extends SceneObject*/ {
 		}
 
 		let task = $get.data(this._url).then(async function (raw) {
-			that._raw = JSON.parse(raw);
+			that._raw = raw;
 			if (that._raw) {
 				await that._construct_actions();
 				
@@ -98,7 +101,7 @@ export class LifeRenderer /*extends SceneObject*/ {
 					break;
 				}
 
-				action = new Animation(this._raw[name], this._url + name);
+				action = new Animation(this._raw[name], [this._url, name].join("/"));
 				action.is_loop = false;
 				
 				tasks.push(action.load());
@@ -123,10 +126,11 @@ export class LifeRenderer /*extends SceneObject*/ {
 			
 			ani.update(stamp);
 				
-			if (ani.isEnd()) {
-				this.action = this.getDefaultAction();//default loop action: stand
-				this.actions[this.action].update(stamp);
-			}
+			//TODO: move this code to: MapLifeEntity.prototype._applyState
+			//if (ani.isEnd()) {
+			//	this.action = this.getDefaultAction();//default loop action: stand
+			//	this.actions[this.action].update(stamp);
+			//}
 		}
 	}
 
@@ -145,8 +149,9 @@ export class LifeRenderer /*extends SceneObject*/ {
 			act.draw(engine, x, y, angle, flip);
 		}
 	}
+	
 	paint(engine) {
-		debugger;
+		throw new TypeError("??");
 		alert("Not Implement");
 		render(engine);
 	}

@@ -50,23 +50,32 @@ export class ActionAnimation {
 		/** @returns {ActionAnimationFrameData[]} */
 		this.frames = null;
 
-		/** @type {string} */
+		/**
+		 * input action
+		 * @type {string}
+		 */
 		this._action = null;
+
+		/**
+		 * input action
+		 * @type {number}
+		 */
+		this.frame = 0;
 
 		/** @type {number} */
 		this.time = 0;
 
-		/** @type {number} */
-		this.frame = 0;
-
 		/** @type {number} this.delay = delay < 0 ? -delay:0; if (this.delay == 0) launch attack */
-		this.delay = 0;
+		this.delay = 0;//not frame delay
 
 		/** @type {boolean} */
 		this.loop = false;
 
 		/** @type {boolean} */
 		this._is_end = false;
+
+		/** @type {(oldInputAction:string,oldOutputAction:string) => void} */
+		this.onEnd = null;
 	}
 
 	/**
@@ -81,10 +90,16 @@ export class ActionAnimation {
 	/**
 	 * from loaded data
 	 * @param {string} action
+	 * @param {(oldInputAction:string,oldOutputAction:string) => void} onEnd
 	 */
-	reload(action) {
+	reload(action, onEnd) {
+		if (this.onEnd) {
+			this.onEnd(this._action, this.action);
+		}
+
 		this.reset();
 		this._load(action);
+		this.onEnd = onEnd;
 	}
 
 	reset() {
@@ -99,7 +114,7 @@ export class ActionAnimation {
 	 * @param {CharacterRenderer} target
 	 */
 	update(stamp, target) {
-		if (!this.frames) {
+		if (!this.frames || !stamp) {
 			return;
 		}
 		const fdat = this.fdat;
@@ -144,14 +159,19 @@ export class ActionAnimation {
 		}
 		
 		// 改變 action & action_frame 會造成迴圈: this.reload(this._action)
-		target._action = fdat.action;
-		target._action_frame = fdat.frame;
+		if (!target._ride_action) {
+			target._action = fdat.action;
+			target._action_frame = fdat.frame;
+		}
 
 		if (!this.frames || this.fdat == null) {
 			this._is_end = true;
 		}
 		else if (!this.loop) {
 			this._is_end = false;
+		}
+		if (this.frames.length <= 1) {
+			this._is_end = true;
 		}
 	}
 
@@ -160,13 +180,7 @@ export class ActionAnimation {
 	}
 
 	getTotalTime() {
-		let tt = 0;
-		for (let i = 0; i < this.frames.length; ++i) {
-			let fdat = this.frames[i];
-
-			tt += fdat.delay;
-		}
-		return tt;
+		return this.frames.reduce((total, frame) => total + frame.delay, 0);
 	}
 
 	/**
@@ -174,13 +188,32 @@ export class ActionAnimation {
 	 * @returns {ActionAnimationFrameData}
 	 */
 	get fdat() {
-		return this.frames[this.frame];
+		const fdat = this.frames[this.frame];
+		return fdat;
+	}
+	/**
+	 * output action
+	 * @returns {string}
+	 */
+	get action() {
+		const fdat = this.frames[this.frame];
+		return fdat ? fdat.action : this.frames[0].action;//need default
+	}
+	/**
+	 * output action frame
+	 * @returns {number}
+	 */
+	get actionFrame() {
+		const fdat = this.frames[this.frame];
+		return fdat ? fdat.frame : 0;
 	}
 
 	static async Init() {
 		/** @type {{[action:string]:ActionAnimationFrameData[]}} */
-		let aadef = JSON.parse(await $get.data(ActionAnimation._base_path));
+		let raw = await $get.data(ActionAnimation._base_path);
 
+		let aadef = Object.assign({}, raw);
+		
 		delete aadef['info'];
 
 		for (let actName in aadef) {
@@ -199,7 +232,7 @@ export class ActionAnimation {
 	}
 
 	static get _base_path() {
-		return "/Character/00002000.img/";
+		return "/Character/00002000";
 	}
 }
 /**

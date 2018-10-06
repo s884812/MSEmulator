@@ -17,7 +17,7 @@ export class NpcRenderer extends LifeRenderer {
 		if (!NpcRenderer._desc[id]) {
 			let base = NpcRenderer._get_desc_base_path();
 			let url = [base, Number(id)].join("/");
-			let desc = JSON.parse(await $get.data(url));
+			let desc = await $get.data(url);
 			NpcRenderer._desc[id] = desc;
 			return desc;
 		}
@@ -37,7 +37,7 @@ export class NpcRenderer extends LifeRenderer {
 	}
 	
 	static _get_desc_base_path() {
-		return '/String/Npc.img';
+		return "/String/Npc";
 	}
 
 	static get _base_path() {

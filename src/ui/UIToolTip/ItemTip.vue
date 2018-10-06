@@ -74,19 +74,19 @@
 					<div class="c2" style="position: relative; width: 100%; height: 85px;">
 						<div style="float: left; position: relative; width: 12px; height: 100%;"></div>
 						<div style="float: left; position: relative; width: 83px; height: 100%;">
-							<texture style="position: absolute; top: 2px;" src="/images/UI/UIToolTip.img/Item/ItemIcon/base"></texture>
+							<texture style="position: absolute; top: 2px;" src="images/UI/UIToolTip/Item/ItemIcon/base"></texture>
 							<div v-if="hasPotential()">
 								<!--淺在-Level-->
-								<texture style="position: absolute; left: 2px; top: 4px;" :src="`/images/UI/UIToolTip.img/Item/ItemIcon/${equip.potential_level}`"></texture>
+								<texture style="position: absolute; left: 2px; top: 4px;" :src="`images/UI/UIToolTip/Item/ItemIcon/${equip.potential_level}`"></texture>
 							</div>
-							<texture class="UIToolTip equip-icon" v-if="'icon' in equip" :scale="[2,2]" :src="equip.icon['']"></texture>
-							<texture style="position: absolute; left: 8px; top: 10px;" src="/images/UI/UIToolTip.img/Item/ItemIcon/cover"></texture>
+							<img v-if="'icon' in equip" :src="getIconUrl()" @load="onload_icon($event)" class="UIToolTip equip-icon"></img>
+							<texture style="position: absolute; left: 8px; top: 10px;" src="images/UI/UIToolTip/Item/ItemIcon/cover"></texture>
 						</div>
 						<div style="float: left; position: relative; top: 1px; width: 160px; height: 100%;">
 							<div class="c1" style="position: relative; width: 155px; height: 50px;">
 								<div style="position: relative; float: right;">攻擊力增加量</div>
 								<div class="UIToolTip attack-digit" style="clear: right;">
-									<texture src="/images/UI/UIToolTip.img/Item/Equip/Summary/incline/0"></texture>
+									<texture src="images/UI/UIToolTip/Item/Equip/Summary/incline/0"></texture>
 								</div>
 							</div>
 							<div class="UIToolTip attrLeft" style="float: left; width: 50%;">
@@ -114,22 +114,22 @@
 					<!--Job-info-->
 					<div class="c1 UIToolTip req-job" style="position: relative; width: 100%; height: 30px;">
 						<div style="position: relative; left: 13px;">
-							<texture src="/images/UI/UIToolTip.img/Item/Equip/Job/normal"></texture>
-							<texture v-if="equip.reqJob < 0" :src="`/images/UI/UIToolTip.img/Item/Equip/Job/enable/0`" origin="-"></texture>
+							<texture src="images/UI/UIToolTip/Item/Equip/Job/normal"></texture>
+							<texture v-if="equip.reqJob < 0" :src="`images/UI/UIToolTip/Item/Equip/Job/enable/0`" origin="-"></texture>
 							<div v-else-if="equip.reqJob == 0 || equip.reqJob == null">
-								<texture src="/images/UI/UIToolTip.img/Item/Equip/Job/enable/0" origin="-"></texture>
-								<texture src="/images/UI/UIToolTip.img/Item/Equip/Job/enable/1" origin="-"></texture>
-								<texture src="/images/UI/UIToolTip.img/Item/Equip/Job/enable/2" origin="-"></texture>
-								<texture src="/images/UI/UIToolTip.img/Item/Equip/Job/enable/3" origin="-"></texture>
-								<texture src="/images/UI/UIToolTip.img/Item/Equip/Job/enable/4" origin="-"></texture>
-								<texture src="/images/UI/UIToolTip.img/Item/Equip/Job/enable/5" origin="-"></texture>
+								<texture src="images/UI/UIToolTip/Item/Equip/Job/enable/0" origin="-"></texture>
+								<texture src="images/UI/UIToolTip/Item/Equip/Job/enable/1" origin="-"></texture>
+								<texture src="images/UI/UIToolTip/Item/Equip/Job/enable/2" origin="-"></texture>
+								<texture src="images/UI/UIToolTip/Item/Equip/Job/enable/3" origin="-"></texture>
+								<texture src="images/UI/UIToolTip/Item/Equip/Job/enable/4" origin="-"></texture>
+								<texture src="images/UI/UIToolTip/Item/Equip/Job/enable/5" origin="-"></texture>
 							</div>
 							<div v-else>
-								<texture v-if="equip.reqJob &  1" :src="`/images/UI/UIToolTip.img/Item/Equip/Job/${(canUseEquip() ? 'enable' : 'disable')}/1`" origin="-"></texture>
-								<texture v-if="equip.reqJob &  2" :src="`/images/UI/UIToolTip.img/Item/Equip/Job/${(canUseEquip() ? 'enable' : 'disable')}/2`" origin="-"></texture>
-								<texture v-if="equip.reqJob &  4" :src="`/images/UI/UIToolTip.img/Item/Equip/Job/${(canUseEquip() ? 'enable' : 'disable')}/3`" origin="-"></texture>
-								<texture v-if="equip.reqJob &  8" :src="`/images/UI/UIToolTip.img/Item/Equip/Job/${(canUseEquip() ? 'enable' : 'disable')}/4`" origin="-"></texture>
-								<texture v-if="equip.reqJob & 16" :src="`/images/UI/UIToolTip.img/Item/Equip/Job/${(canUseEquip() ? 'enable' : 'disable')}/5`" origin="-"></texture>
+								<texture v-if="equip.reqJob &  1" :src="`images/UI/UIToolTip/Item/Equip/Job/${(canUseEquip() ? 'enable' : 'disable')}/1`" origin="-"></texture>
+								<texture v-if="equip.reqJob &  2" :src="`images/UI/UIToolTip/Item/Equip/Job/${(canUseEquip() ? 'enable' : 'disable')}/2`" origin="-"></texture>
+								<texture v-if="equip.reqJob &  4" :src="`images/UI/UIToolTip/Item/Equip/Job/${(canUseEquip() ? 'enable' : 'disable')}/3`" origin="-"></texture>
+								<texture v-if="equip.reqJob &  8" :src="`images/UI/UIToolTip/Item/Equip/Job/${(canUseEquip() ? 'enable' : 'disable')}/4`" origin="-"></texture>
+								<texture v-if="equip.reqJob & 16" :src="`images/UI/UIToolTip/Item/Equip/Job/${(canUseEquip() ? 'enable' : 'disable')}/5`" origin="-"></texture>
 							</div>
 						</div>
 						<div v-if="'reqSpecJob' in equip">
@@ -144,20 +144,90 @@
 					<!--end-dotline-->
 					<!--begin-text-seg-->
 					<div class="UIToolTip attribute">
-						<div v-if='isEquip(equip.id)'>
-							<div class="c1">裝備分類&ensp;:&ensp;{{getEquipCategoryName()}}</div>
+						<div v-if='isEquip()'>
+							<div class="c1"><span>裝備分類 : {{getEquipCategoryName()}}</span></div>
 						</div>
 
-						<div class="c2" v-if="shouldShowAttr('incSTR')">力量&ensp;:&ensp;{{adjAttr(equip.incSTR)}}</div>
-						<div class="c3" v-if="shouldShowAttr('incDEX')">敏捷&ensp;:&ensp;{{adjAttr(equip.incDEX)}}</div>
-						<div class="c2" v-if="shouldShowAttr('incINT')">智力&ensp;:&ensp;{{adjAttr(equip.incINT)}}</div>
-						<div class="c3" v-if="shouldShowAttr('incLUK')">幸運&ensp;:&ensp;{{adjAttr(equip.incLUK)}}</div>
-						<div class="c1" v-if="shouldShowAttr('incMHP')">MaxHP&ensp;:&ensp;{{adjAttr(equip.incMHP)}}</div>
-						<div class="c2" v-if="shouldShowAttr('incMMP')">MaxMP&ensp;:&ensp;{{adjAttr(equip.incMMP)}}</div>
-						<div class="c3" v-if="shouldShowAttr('incPAD')">攻擊力&ensp;:&ensp;{{adjAttr(equip.incPAD)}}</div>
-						<div class="c1" v-if="shouldShowAttr('incPDD')">物理防禦力&ensp;:&ensp;{{adjAttr(equip.incPDD)}}</div>
-						<div class="c2" v-if="shouldShowAttr('imdR')">無視怪物防禦力{{equip.imdR}}%</div>
-						<div class="c3" v-if="shouldShowAttr('tuc')">可使用捲軸次數&ensp;:&ensp;{{equip.tuc}}</div>
+						<div class="c2" v-if="shouldShowAttr('incSTR')">	  	<span>力量 :	  	   {{adjAttr(equip.incSTR)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incSTRr')">	  	<span>力量 :		   {{adjAttr(equip.incSTRr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incDEX')">	  	<span>敏捷 :		   {{adjAttr(equip.incDEX)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incDEXr')">	    <span>敏捷 :		   {{adjAttr(equip.incDEXr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incINT')">	  	<span>智力 :		   {{adjAttr(equip.incINT)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incINTr')">	  	<span>智力 :		   {{adjAttr(equip.incINTr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incLUK')">	  	<span>幸運 :		   {{adjAttr(equip.incLUK)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incLUKr')">	  	<span>幸運 :		   {{adjAttr(equip.incLUKr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incAllStat')">	<span>所有属性 :	   {{adjAttr(equip.incAllStat)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incMHP')">	  	<span>MaxHP :	  	   {{adjAttr(equip.incMHP)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incMHPr')">	  	<span>MaxHP :		   {{adjAttr(equip.incMHPr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incMMP')">	  	<span>MaxMP :	  	   {{adjAttr(equip.incMMP)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incMMPr')">	  	<span>MaxMP :		   {{adjAttr(equip.incMMPr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incMDF')">	  	<span>MaxDF :		   {{adjAttr(equip.incMDF)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incPAD')">	  	<span>攻擊力 :		   {{adjAttr(equip.incPAD)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incPADr')">	  	<span>攻擊力 :		   {{adjAttr(equip.incPADr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incMAD')">	  	<span>魔法力 :		   {{adjAttr(equip.incMAD)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incMADr')">	  	<span>魔法力 :		   {{adjAttr(equip.incMADr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incPDD')">	  	<span>物理防禦力 :     {{adjAttr(equip.incPDD)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incPDDr')">	  	<span>物理防禦力 :     {{adjAttr(equip.incPDDr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incMDD')">	  	<span>魔法防禦力 :     {{adjAttr(equip.incMDD)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incMDDr')">	  	<span>魔法防禦力 :     {{adjAttr(equip.incMDDr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incACC')">	  	<span>命中值 :		   {{adjAttr(equip.incACC)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incACCr')"> 		<span>命中值 :		   {{adjAttr(equip.incACCr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incEVA')">	  	<span>回避值 :		   {{adjAttr(equip.incEVA)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incEVAr')">	  	<span>回避值 :		   {{adjAttr(equip.incEVAr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incSpeed')">  	<span>移动速度 :		   {{adjAttr(equip.incSpeed)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incJump')">		<span>跳跃力 :		   {{adjAttr(equip.incJump)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incCraft')">		<span>手技 :		   {{adjAttr(equip.incCraft)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('damR')">		    <span>总伤害 :  		   {{adjAttr(equip.damR)}}</span></div>
+						<div class="c3" v-if="shouldShowAttr('incDAMr')">		<span>总伤害 :	  	   {{adjAttr(equip.incDAMr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incCr')">			<span>爆击率 :		   {{adjAttr(equip.incCr)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incPVPDamage')">	<span>大乱斗时追加攻击力{{adjAttr(equip.incPVPDamage)}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incPQEXPr')">		<span>组队任务经验值增加{{equip.incPQEXPr}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incBDR')">		<span>攻击BOSS怪物时，伤害+{{equip.incBDR}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('bdR')">			<span>攻击BOSS怪物时，伤害+{{equip.bdR}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('incIMDR')">		<span>無視怪物防禦力{{equip.incIMDR}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('imdR')">			<span>無視怪物防禦力{{equip.imdR}}%</span></div>
+						<div class="c3" v-if="shouldShowAttr('limitBreak')">	<span>伤害上限突破至{{equip.limitBreak}}。</span></div>
+						<div class="c3" v-if="shouldShowAttr('reduceReq')">		<span>装备等级降低 : -{{equip.reduceReq}}。</span></div>
+						<div class="c3" v-if="shouldShowAttr('knockback')">		<span>直接攻击时{{equip.knockback}}的比率发生后退现象。</span></div>
+						<div class="c1" v-if="shouldShowAttr('tuc')">			<span>可使用捲軸次數 : {{equip.tuc}}</span></div>
+
+						<!--
+						case GearPropType.only: return value == 0 ? null : "固有道具";
+						case GearPropType.tradeBlock: return value == 0 ? null : "不可交换";
+						case GearPropType.equipTradeBlock: return value == 0 ? null : "装备后无法交换";
+						case GearPropType.accountSharable: return value == 0 ? null : "世界内只有我的角色之间可以移动";
+						case GearPropType.onlyEquip: return value == 0 ? null : "固有装备物品";
+						case GearPropType.notExtend: return value == 0 ? null : "无法延长有效时间。";
+						case GearPropType.tradeAvailable:
+							switch (value)
+							{
+								case 1: return " #c使用宿命剪刀，可以使物品交易1次。#";
+								case 2: return " #c使用白金宿命剪刀，可以使物品交易1次。#";
+								default: return null;
+							}
+						case GearPropType.accountShareTag:
+							switch (value)
+							{
+								case 1: return " #c使用物品共享牌，可以在同一账号内的角色间移动1次。#";
+								default: return null;
+							}
+						case GearPropType.noPotential: return value == 0 ? null : "无法设置潜能。";
+						case GearPropType.fixedPotential: return value == 0 ? null : "无法重设潜能";
+						case GearPropType.superiorEqp: return value == 0 ? null : "道具强化成功时，可以获得更高的效果。";
+						case GearPropType.nActivatedSocket: return value == 0 ? null : "#c可以镶嵌星岩#";
+						case GearPropType.jokerToSetItem: return value == 0 ? null : " #c当前装备3个以上的所有套装道具中包含的幸运物品！#";
+						case GearPropType.abilityTimeLimited: return value == 0 ? null : "限期能力值";
+						case GearPropType.blockGoldHammer: return value == 0 ? null : "无法使用黄金锤";
+
+						case GearPropType.incMHP_incMMP: return "最大HP/最大MP：" + sign + value;
+						case GearPropType.incMHPr_incMMPr: return "最大HP/最大MP：" + sign + value + "%";
+						case GearPropType.incPAD_incMAD: return "攻击力/魔力：" + sign + value;
+						case GearPropType.incPDD_incMDD: return "物理/魔法防御力：" + sign + value;
+						case GearPropType.incACC_incEVA: return "命中值/回避值：" + sign + value;
+
+						case GearPropType.incARC: return "ARC : " + sign + value;
+					-->
+
 					</div>
 					<!--end-text-seg-->
 					<!--padding_end-->
@@ -207,21 +277,23 @@
 				</div><!--content_end-->
 			</div>
 			<div v-if="isShowDebug" class="debug-info">
-				<div contenteditable="true" spellcheck="false"><span>id   : </span>{{equip.id}}</div>
-				<div v-if="!!equip._name" contenteditable="true" spellcheck="false"><span>nameEn: </span>{{equip._name}}</div>
-				<div v-else contenteditable="true" spellcheck="false"><span>name : </span>{{equip.name}}</div>
-				<div>Added in: {{equip.__v}}</div>
-				<div contenteditable="true" spellcheck="false"><span>islot: </span>{{equip.islot}}</div>
-				<div contenteditable="true" spellcheck="false"><span>vslot: </span>{{equip.vslot}}</div>
+				<div>							<span>id   : </span>	<span contenteditable="true" spellcheck="false">{{equip.id}}</span></div>
+				<div v-if="!!equip._name">		<span>nameEn: </span>	<span contenteditable="true" spellcheck="false">{{equip._name}}</span></div>
+				<div v-else>					<span>name : </span>	<span contenteditable="true" spellcheck="false">{{equip.name}}</span></div>
+				<div v-if="equip.__v">			<span>Added in: </span>	<span contenteditable="true" spellcheck="false">{{equip.__v}}</span></div>
+				<div v-if="equip.__modified">	<span>Modified: </span>	<span contenteditable="true" spellcheck="false">{{equip.__modified}}</span></div>
+				<div v-if="equip.__removed">	<span>Removed: </span>	<span contenteditable="true" spellcheck="false">{{equip.__removed}}</span></div>
+				<div v-if="equip.islot">		<span>islot: </span>	<span contenteditable="true" spellcheck="false">{{equip.islot}}</span></div>
+				<div v-if="equip.vslot">		<span>vslot: </span>	<span contenteditable="true" spellcheck="false">{{equip.vslot}}</span></div>
 			</div>
 		</template>
 	</div>
 </template>
 
 <script>
-	import { ItemCategoryInfo, ResourceManager, ItemAttrNormalize } from '../../../public/resource.js';
+	import { ItemCategoryInfo, ResourceManager, ItemAttrNormalize } from '../../../public/javascripts/resource.js';
 
-	import { PlayerStat } from "../../Client/PlayerStat.js";
+	import { CharacterStat } from "../../Common/PlayerData.js";
 
 
 	const _init_data = {
@@ -355,7 +427,7 @@
 						if (img.src.indexOf("maplestory.io") >= 0) {
 							return;
 						}
-						let path = img.src.replace("/images/", "/data/");
+						let path = img.src.replace("images/", "/data/");
 						$get(path).then(function (result) {
 							try {
 								let obj = JSON.parse(result);
@@ -406,7 +478,7 @@
 					}, [
 						createElement("texture", {
 							attrs: {
-								src: `/images/UI/UIToolTip.img/Item/Equip/${ EquipReq.prototype.getReqState.call(this)}/req${ attrName }`
+								src: `images/UI/UIToolTip/Item/Equip/${ EquipReq.prototype.getReqState.call(this)}/req${ attrName }`
 							}
 						}),
 						createElement("div", {
@@ -414,17 +486,17 @@
 						}, [
 							createElement("texture", {
 								attrs: {
-									src: `/images/UI/UIToolTip.img/Item/Equip/${state}/${digit[0]}`
+									src: `images/UI/UIToolTip/Item/Equip/${state}/${digit[0]}`
 								}
 							}),
 							createElement("texture", {
 								attrs: {
-									src: `/images/UI/UIToolTip.img/Item/Equip/${ state }/${ digit[1] }`
+									src: `images/UI/UIToolTip/Item/Equip/${ state }/${ digit[1] }`
 								}
 							}),
 							createElement("texture", {
 								attrs: {
-									src: `/images/UI/UIToolTip.img/Item/Equip/${ state }/${ digit[2] }`
+									src: `images/UI/UIToolTip/Item/Equip/${ state }/${ digit[2] }`
 								}
 							})
 						])
@@ -452,12 +524,12 @@
 		}
 		digitCharArray() {
 			const required = this.equip[`req${this.attrName}`] | 0;
-			let s = Number(required).toFixed(0).padLeft(3, "0");
+			let s = Number(required).toFixed(0).padStart(3, "0");
 			return s;
 		}
 		data() {
 			return {
-				imgUrl: "/images/UI/UIToolTip.img/Item/Equip/"
+				imgUrl: "images/UI/UIToolTip/Item/Equip/"
 			}
 		}
 	}
@@ -511,7 +583,7 @@
 						return this.chara.stat;
 					}
 					else {
-						return new PlayerStat();//dummy
+						return new CharacterStat();//dummy
 					}
 				},
 				set: function () {
@@ -543,9 +615,17 @@
 			shouldShowAttr(attrName) {
 				return this.equip[attrName] != null && this.equip[attrName] > 0;
 			},
-			isEquip(id) {
-				return ItemCategoryInfo.isEquip(id);
-			}
+			isEquip() {
+				return ItemCategoryInfo.isEquip(this.equip.id);
+			},
+			getIconUrl() {
+				return $get.imageUrl(this.equip.icon['']);
+			},
+			onload_icon(event) {
+				const img = event.target;
+				img.style.width = (img.naturalWidth * 2) + "px";
+				img.style.height = (img.naturalHeight * 2) + "px";
+			},
 		},
 		updated: function () {
 			this._update_frame();
@@ -613,29 +693,29 @@
 	.UIToolTip.border-head {
 		width: 261px;
 		height: 13px;
-		background: url(/images/UI/UIToolTip.img/Item/Frame/top);
+		background: url(/images/UI/UIToolTip/Item/Frame/top);
 	}
 	.UIToolTip.border-left {
 		width: 13px;
 		height: 3px;
 		background-repeat: repeat-y;
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/w);
+		background: url(/images/UI/UIToolTip/Item/Frame2/w);
 	}
 	.UIToolTip.container {
 		width: 235px;
 		height: auto;
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/c);
+		background: url(/images/UI/UIToolTip/Item/Frame2/c);
 	}
 	.UIToolTip.border-right {
 		width: 13px;
 		height: 3px;
 		background-repeat: repeat-y;
-		background: url(/images/UI/UIToolTip.img/Item/Frame2/e);
+		background: url(/images/UI/UIToolTip/Item/Frame2/e);
 	}
 	.UIToolTip.border-foot {
 		width: 261px;
 		height: 13px;
-		background: url(/images/UI/UIToolTip.img/Item/Frame/bottom);
+		background: url(/images/UI/UIToolTip/Item/Frame/bottom);
 	}
 	.UIToolTip.Item-Frame-cover {
 		position: absolute;
@@ -643,7 +723,7 @@
 		left: 3px;
 		width: 100%;
 		height: 100%;
-		background: url(/images/UI/UIToolTip.img/Item/Frame/cover);
+		background: url(/images/UI/UIToolTip/Item/Frame/cover);
 		background-repeat: no-repeat;
 	}
 
@@ -661,7 +741,7 @@
 		letter-spacing: -0px;
 	}
 	.UIToolTip.dotline {
-		background: url(/images/UI/UIToolTip.img/Item/Frame/dotline);
+		background: url(/images/UI/UIToolTip/Item/Frame/dotline);
 		background-repeat: no-repeat;
 	}
 	.UIToolTip.attack-digit {

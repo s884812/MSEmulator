@@ -1,92 +1,138 @@
 ﻿
 <template>
-	<ui-draggable class="ui-dialog ui-equip-box" :zIndex="zIndex" :position="position">
-		<div v-if="minimum" @mousedown.left="requireOrder($event)" class="header" :style="header_style">
-			Equip box
-			<div class="header-buttons">
-				<button @click="minimum=!minimum"
-						class="header-button">
-							<span class="ui-icon ui-icon-plus"></span>
-						</button>
-			</div>
-		</div>
-		<div v-else @mousedown.left="requireOrder($event)" class="header btn-group" :style="header_style">
-			<div class="header" style="text-align: left;">
-				Equip box
-				<div class="header-buttons">
-					<button @click="minimum=!minimum"
-							class="header-button"
-							>
-								<span class="ui-icon ui-icon-minus"></span>
+	<div class="ui-equip-box">
+		<div ref="content" class="ui-equip-box-content">
+			<!-- begin header -->
+			<div class="header" style="width: 100%;">
+				<div style="width: 100%;">
+					<!-- begin filter -->
+					<div style="display: inline-flex; width: 100%;">
+						<select v-model="selected_category" style="flex: 1;">
+							<template v-for="(og,key) in categoryGroupList">
+								<template v-if="og.length>1">
+									<optgroup :label="key">
+										<option v-for="cat in og" :value="cat.id_prefix">{{cat.categoryName}}</option>
+									</optgroup>
+								</template>
+								<template v-else>
+									<option :value="og[0].id_prefix">{{og[0].categoryName}}</option>
+								</template>
+							</template>
+						</select>
+						<input ref="input_search" type="search" v-model="search_text" @keydown.enter="searchNextText" list="search_param" placeholder="<search by name or id>" style="flex: 3;" />
+						<datalist id="search_param">
+							<option value="劍">item Name</option>
+							<option value="01302000">item ID</option>
+							<option value="<attr>:/<regexp>/"></option>
+							<option value="$style:/21158/">face | hair</option>
+							<option value="$foreign:/true/">external resource</option>
+							<option :value="'__v:/'+DATA_TAG_VERSION+'/'">current version</option>
+						</datalist>
+						<div style="position: relative; display: inline-block;">
+							<button @click="isShowSetting=!isShowSetting" @mouseover="isShowSetting=true" title="setting" style="padding: 0;">
+								<span v-if="!isShowSetting" style="color: black;">⚙️</span>
+								<span v-else style="color: red;">⚙️</span>
 							</button>
-				</div>
-			</div>
-
-			<div>
-				<div v-once style="display: inline-flex; width: 100%;">
-					<select v-model="selected_category" ref="select_category" style="flex: 1;">
-						<option v-for="cat in categoryList" :value="cat.value">{{cat.key}}</option>
-					</select>
-					<input ref="input_search" type="search" v-model="search_text" @keydown.enter="searchNextText" :title="'name\nItemID\n<attr>:/<regexp>/\n$style:/21158/\n$foreign:/true/'" placeholder="Search.." style="flex: 1;" />
-					<div style="position: relative; display: inline-block;">
-						<button v-ui:show.mouseenter="200" v-ui:hide.mouseleave="200" v-ui:ref="'setting'" style="padding: 0;">
-							<span class="ui-icon ui-icon-gear"></span>
-						</button>
-						<div v-ui:hide v-ui:show.mouseenter="200" v-ui:hide.mouseleave="200" v-ui:ref="'setting'" ref="setting"
-							 style="position: absolute; left: 0; top: 0; background: #e9e9e9; border: 1px solid #ddd; width: 12em; text-align:left; padding: 0.25em 0.5em;">
-							<div><label><input type="checkbox" v-model="onlyShowSearchResult" />Only show result of search</label></div>
-							<div><label><input type="checkbox" v-model="displayMode" />display: {{displayMode ? "plain":"list"}}</label></div>
 						</div>
 					</div>
+					<!-- end filter -->
+
+					<!-- begin setting -->
+					<transition name="show-setting-fade">
+						<div v-if="isShowSetting">
+							<table>
+								<tbody>
+									<tr>
+										<td>每頁顯示數量</td>
+										<td><input type="number" v-model.number="countOfItemsPerPage" min="10" max="1000" /></td>
+									</tr>
+									<tr>
+										<td>只顯示搜尋結果</td>
+										<td><input type="checkbox" v-model="onlyShowSearchResult" /></td>
+									</tr>
+									<tr>
+										<td>顯示方式</td>
+										<td><label><input type="checkbox" v-model="displayMode" />{{displayMode ? "圖示":"清單"}}</label></td>
+									</tr>
+									<tr>
+										<td>
+											<span>排序方式</span>
+											<select v-model="sortCompareMethod" @change="loadList">
+												<option value="less">遞增</option>
+												<option value="greater">遞減</option>
+											</select>
+										</td>
+										<td>
+											<input v-model="sortMethod" list="sort_method" @input="loadList" />
+											<datalist id="sort_method">
+												<option value="id">ID</option>
+												<option value="name">名稱</option>
+												<option value="icon">圖示</option>
+
+												<option value="attr" disabled>--item[attr]--</option>
+												<option value="reqLevel">reqLevel</option>
+											</datalist>
+										</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</transition>
+					<!-- end setting -->
+
+					<!-- begin filter -->
+					<div class="button-area" style="background: lightgray;">
+						<ui-button-group type="checkbox" :buttons="filter_buttons" :active.sync="filters" class="filters">
+							<template slot-scope="{text, value}">
+								<img :src="`images/toolstrip_${value}.png`" :alt="text" />
+							</template>
+						</ui-button-group>
+
+						<ui-button-group v-if="_is_category_face()" type="radio" :buttons="face_color_buttons" :active.sync="face_color" class="face_color">
+							<template slot-scope="{text, value}">
+								<span :value="value" :title="`${value}. ${text}色臉型`" :style="{background: '#'+value}">{{text}}</span>
+							</template>
+						</ui-button-group>
+
+						<template v-if="_is_category_hair()">
+							<ui-button-group type="radio" :buttons="hair_color_buttons" :active.sync="hair_color" class="hair_color">
+								<template slot-scope="{text, value}">
+									<span :value="value" :title="`${value}. ${text}色髮型 (${value})`" :style="{background: '#'+value}">{{text}}</span>
+								</template>
+							</ui-button-group>
+							<table class="hair_color" style="font-family: monospace; text-shadow: 0 0 5px white; border-spacing: 1px;">
+								<tr>
+									<td :style="getHairMixColor1CSS()"><span class="mix-color">{{String(100-hair_mix2)}}%</span></td>
+									<td style="width: 100%;"><input type="range" min="0" max="100" step="1" v-model.number="hair_mix2" style="width: 100%;" /></td>
+									<td :style="getHairMixColor2CSS()"><span class="mix-color">{{String(hair_mix2)}}%</span></td>
+								</tr>
+							</table>
+							<ui-button-group type="radio" :buttons="hair_color_buttons" :active.sync="hair_color2" class="hair_color">
+								<template slot-scope="{text, value}">
+									<span :value="value" :title="`${value}. ${text}色髮型 (${value})`" :style="{background: '#'+value}">{{text}}</span>
+								</template>
+							</ui-button-group>
+						</template>
+					</div>
+					<!-- end filter -->
 				</div>
 			</div>
+			<!-- end header -->
 
-			<div class="button-area" style="background: lightgray;">
-				<ui-button-group type="checkbox" :buttons="filter_buttons" :active.sync="filters" class="filters">
-					<template slot-scope="{text, value}">
-						<img :src="`images/toolstrip_${value}.png`" :alt="text" />
+			<!-- begin pagination -->
+			<div v-if="__count_of_item_in_page > 0" style="display: table-row;">
+				<div class="m-pagination">
+					<template v-for="i in __count_of_page">
+						<span v-if="page == (i-1)" :title="i - 1" class="m-pagination-item active">{{i}}</span>
+						<span v-else @click.prevent="change_page(i - 1)" :title="i - 1" class="m-pagination-item">{{i}}</span>
 					</template>
-				</ui-button-group>
-
-				<ui-button-group v-if="_is_category_face()" type="radio" :buttons="face_color_buttons" :active.sync="face_color" class="face_color">
-					<template slot-scope="{text, value}">
-						<span :value="value" :title="`${value}. ${text}色臉型`" :style="{background: '#'+value}">{{text}}</span>
-					</template>
-				</ui-button-group>
-
-				<template v-if="_is_category_hair()">
-					<ui-button-group type="radio" :buttons="hair_color_buttons" :active.sync="hair_color" class="hair_color">
-						<template slot-scope="{text, value}">
-							<span :value="value" :title="`${value}. ${text}色髮型 (${value})`" :style="{background: '#'+value}">{{text}}</span>
-						</template>
-					</ui-button-group>
-					<table class="hair_color" style="font-family: monospace; text-shadow: 0 0 5px white; border-spacing: 1px;">
-						<tr>
-							<td :style="getHairMixColor1CSS()"><span style="width: 3em; display: inline-block;">{{String(100-hair_mix2)}}%</span></td>
-							<td style="width: 100%;"><input type="range" min="0" max="100" step="1" v-model.number="hair_mix2" style="width: 100%;" /></td>
-							<td :style="getHairMixColor2CSS()"><span style="width: 3em; display: inline-block;">{{String(hair_mix2)}}%</span></td>
-						</tr>
-					</table>
-					<ui-button-group type="radio" :buttons="hair_color_buttons" :active.sync="hair_color2" class="hair_color">
-						<template slot-scope="{text, value}">
-							<span :value="value" :title="`${value}. ${text}色髮型 (${value})`" :style="{background: '#'+value}">{{text}}</span>
-						</template>
-					</ui-button-group>
-				</template>
+				</div>
 			</div>
+			<!-- end pagination -->
 
-			<div v-if="__count_of_item_in_page > 0" class="header pagination top">
-				<template v-for="i in __count_of_page">
-					<a v-if="page == (i-1)" :title="i - 1" class="active">{{i}}</a>
-					<a v-else @click.prevent="change_page(i - 1)" :title="i - 1" href="#">{{i}}</a>
-				</template>
-			</div>
-		</div>
-
-		<div ref="content" @mousedown.left="requireOrder($event)" :style="content_style" class="content">
-			<template v-if="__count_of_item_in_page > 0">
+			<div v-if="__count_of_item_in_page > 0" class="item-list-page">
 				<template v-if="displayMode==false">
-					<ul class="item-list" style="width: calc(6*48px);">
+					<ul class="item-list">
 						<template v-for="i in __count_of_item_in_page">
 							<li :key="__get_item_id(i - 1)"
 								:id="'item' + __get_item_id(i - 1)"
@@ -115,7 +161,7 @@
 					</ul>
 				</template>
 				<template v-else>
-					<div class="item-list-sm" :style="{width: `calc(${column_count + 1}*48px)`}">
+					<div class="item-list-sm">
 						<template v-for="i in __count_of_item_in_page">
 							<div @contextmenu.prevent :key="__get_item_id(i - 1)"
 								 :id="'item' + __get_item_id(i - 1)"
@@ -140,43 +186,20 @@
 						</template>
 					</div>
 				</template>
-			</template>
-			<template v-else>
+			</div>
+			<div v-else>
 				<div v-pre style="cursor: default;">
 					No search item
 				</div>
-			</template>
-		</div>
-
-		<div v-if="!minimum" @mousedown.left="requireOrder($event)" class="footer" :style="header_style">
-			<div v-if="!minimum" style="text-align: center;">
-				<div v-if="__count_of_item_in_page > 0" class="pagination bottom">
-					<template v-for="i in __count_of_page">
-						<a v-if="page == (i-1)" :title="i - 1" class="active">{{i}}</a>
-						<a v-else @click.prevent="change_page(i - 1)" :title="i - 1" href="#">{{i}}</a>
-					</template>
-				</div>
-
-				<!--<div style="background: lightgray;">
-					<p>selected_category: {{selected_category}}</p>
-					<p>search_item: {{search_item}}</p>
-					<p>filters: {{filters}}</p>
-					<p>face_color: {{face_color}}</p>
-					<p>hair_color: {{hair_color}}</p>
-				</div>-->
 			</div>
 		</div>
-	</ui-draggable>
+	</div>
 </template>
 
 <script>
-	import Vuex from 'vuex';
-
-	import UIDraggable from "../components/ui-draggable.vue";
-	import UIDialog from "../components/ui-dialog.vue";
 	import UIButtonGroup from '../components/ui-button-group.vue';
 
-	import { ItemCategoryInfo, ResourceManager, ItemAttrNormalize, CharacterRenderConfig } from '../../public/resource.js';
+	import { ItemCategoryInfo, ResourceManager, ItemAttrNormalize, CharacterRenderConfig } from '../../public/javascripts/resource.js';
 
 	function emSize(socpe) {
 		let scopeTest = document.createElement("div");
@@ -289,30 +312,18 @@
 		ItemFilter.list[i] = fn;
 	}
 
-	const config = new (class {
-		constructor() {
-			this.pageSize = 100;
-		}
-		calcPage(index) {
-			return Math.trunc(index / this.pageSize);
-		}
-	});
-
 	export default {
 		data: function () {
 			return {
-				//config: config,
 				search_text: "",
 				search_next: -1,
-
-				column_count: 5,
 
 				loaded_equip_list: [],	// origin list (no filter)
 				loaded_category: null,
 				equip_list: [],			// view list (final result)
 				search_equip_result: [],// only search result
 
-				selected_category: null,
+				selected_category: "0000",
 				filters: [],
 				face_color: 0,
 				hair_color: 0,
@@ -326,25 +337,63 @@
 
 				onlyShowSearchResult: true,
 				displayMode: true,
+				countOfItemsPerPage: 200,
+
+				sortCompareMethod: "greater",
+				sortMethod: "id",
+				
+				isShowSetting: false,
+				
+				zIndex: 0,
 			};
 		},
-		computed: {// can't computing outside template ??
-			categoryList: () => ItemCategoryInfo._categoryList,
+		computed: {
+			DATA_TAG_VERSION: () => window.DATA_TAG + window.DATA_VERSION,
+			categoryGroupList: function () {
+				/** @type {ItemCategoryInfo[]} */
+				const cl = Object.values(ItemCategoryInfo._info);//ItemCategoryInfo._categoryList;
+				let ss = {};
+				let ks = {};
+
+				cl.forEach(cat => {
+					let group;
+					if (cat.slot) {
+						let _g = cat.slot.match(/^[0-9a-z]+/);
+						group = _g ? _g[0].toLocaleLowerCase() : cat.slot;
+					}
+					else {
+						let group = cat.categoryName;
+					}
+					if (!ss[group]) {
+						ss[group] = [];
+					}
+					let key = cat.categoryName || cat.listPath;
+					if (!ks[key]) {
+						ss[group].push(cat);
+						ks[key] = 1;
+					}
+				});
+
+				return ss;
+			},
 			filter_buttons: () => filter_buttons,
 			face_color_buttons: () => face_color_buttons,
 			hair_color_buttons: () => hair_color_buttons,
 			__count_of_item_in_page: function () {
-				const start = this.page * config.pageSize;
-				const end = Math.min(start + config.pageSize, this.equip_list.length);
+				const start = this.page * this.countOfItemsPerPage;
+				const end = Math.min(start + this.countOfItemsPerPage, this.equip_list.length);
 				const count = end - start;
 
 				return Math.min(Math.max(0, count), this.equip_list.length);//return 0 < count < this.equip_list.length
 			},
 			__count_of_page: function () {
-				return Math.ceil(this.equip_list.length / config.pageSize);
+				return Math.ceil(this.equip_list.length / this.countOfItemsPerPage);
 			},
 		},
 		methods: {
+			__set_z_index: function (z) {//override
+				this.zIndex = z;
+			},
 			getHairMixColor1CSS() {
 				return Object.assign({ "clip-path": "polygon(50% 0%, 0% 20%, 0% 90%, 100% 90%, 100% 20%)" }, hair_color_buttons[this.hair_color].style);
 			},
@@ -355,24 +404,10 @@
 				let img = e.currentTarget.querySelector("img");
 				if (img) {
 					if (img.src.startsWith("data:image/")) {
-						const prefix = this.selected_category;
-						const cateinfo = ItemCategoryInfo.get(prefix);
-						const path = cateinfo.path;
-						let url = `${window.location.origin}/images/Character/${path != "" ? (path + "/" + id) : id}.img/`;
-
-						if (path == "") {
-							return;
+						if (window.confirm("圖示可能不存在，確定要複製圖示位置？")) {
+							let url = ItemCategoryInfo.getIconRawUrl(id);
+							copyToClipboard(url);
 						}
-						if (path == "Face") {
-							url += "blink/0/face";
-						}
-						else if (path == "Hair") {
-							url += "stand1/0/hairOverHead";
-						}
-						else {
-							url += "info/iconRaw";
-						}
-						copyToClipboard(url);
 					}
 					else {
 						copyToClipboard(img.src);
@@ -417,10 +452,10 @@
 									if (this._is_category_hair()) {
 										let black = CharacterRenderConfig.getColorHairID(String(si), 0);
 
-										this.search_equip_result = this.equip_list.filter(function (item, index) {
+										this.search_equip_result = this.equip_list.filter((item, index) => {
 											let b1 = item.id == null || CharacterRenderConfig.getColorHairID(item.id, 0);
 											if (b1 && b1.indexOf(black) != -1) {
-												item.$page = config.calcPage(index);
+												item.$page = (index / this.countOfItemsPerPage);
 												return true;
 											}
 										});
@@ -428,10 +463,10 @@
 									else if (this._is_category_face()) {
 										let black = CharacterRenderConfig.getColorFaceID(String(si), 0);
 
-										this.search_equip_result = this.equip_list.filter(function (item, index) {
+										this.search_equip_result = this.equip_list.filter((item, index) => {
 											let b1 = item.id == null || CharacterRenderConfig.getColorFaceID(item.id, 0);
 											if (b1 && b1.indexOf(black) != -1) {
-												item.$page = config.calcPage(index);
+												item.$page = (index / this.countOfItemsPerPage);
 												return true;
 											}
 										});
@@ -439,9 +474,9 @@
 								}
 								if (this.search_equip_result.length == 0) {
 									let regexp = RegExp(rr[2]);
-									this.search_equip_result = this.equip_list.filter(function (item, index) {
+									this.search_equip_result = this.equip_list.filter((item, index) => {
 										if (item[attr] != null && regexp.test(item[attr])) {
-											item.$page = config.calcPage(index);
+											item.$page = (index / this.countOfItemsPerPage);
 											return true;
 										}
 									});
@@ -464,14 +499,14 @@
 							}
 						}
 						else {
-							this.search_equip_result = this.equip_list.filter(function (item, index) {
+							this.search_equip_result = this.equip_list.filter((item, index) => {
 								if (item.id && item.id.indexOf(search_text) >= 0 ||
 									item.name && (
 										item.name.indexOf(search_text) >= 0 ||
 										item.name.toLowerCase().indexOf(search_text.toLowerCase()) >= 0
 									)
 								) {
-									item.$page = config.calcPage(index);
+									item.$page = (index / this.countOfItemsPerPage);
 									return true;
 								}
 							});
@@ -516,7 +551,7 @@
 
 					this.change_page(page);
 
-					this.$nextTick(function () {
+					this.$nextTick(() => {
 						window.location.hash = "item" + item.id;
 
 						this.$refs.input_search.focus();
@@ -578,10 +613,12 @@
 
 				const coloredPath = listPath + this.__get_color();
 
+				/** @type {EquipInfo[]} */
 				let equip_list = [];
 
+				//fetch list
 				if (coloredPath != this.loaded_category || this.loaded_equip_list.length == 0) {
-					equip_list = JSON.parse(await $get(`/equips/${coloredPath}.json`));
+					equip_list = JSON.parse(await $get.asset(`equips/${coloredPath}.json`));
 					if (!equip_list || !equip_list.length) {
 						alert("? " + coloredPath);
 						return;
@@ -589,8 +626,8 @@
 
 					await concat_external_resource(coloredPath, equip_list);
 
-					if (cateinfo.slot == "weapon") {
-						let cash_weapon = JSON.parse(await $get(`/equips/0170.json`));
+					if (cateinfo.slot == "weapon" && this.selected_category != "0170") {
+						let cash_weapon = JSON.parse(await $get.asset(`equips/0170.json`));
 
 						let wt = prefix.slice(2, 4);
 						let va = cash_weapon.filter(a => {
@@ -609,6 +646,7 @@
 				}
 				//this.equip_list = equip_list;
 
+				//filter item
 				if (equip_list.length > 0) {
 					let fnFilter = this.__get_filter();
 					if (fnFilter) {
@@ -618,6 +656,7 @@
 				else {
 					debugger;
 				}
+
 				this.equip_list = equip_list;// for using this.__count_of_page
 
 				if (equip_list.length > 0) {
@@ -632,7 +671,53 @@
 						this.page = 0;
 					}
 
-					equip_list.sort((a, b) => a.id - b.id);
+					//sort item
+					{
+						if (window.$sort_item) {
+							equip_list = equip_list.sort(window.$sort_item);
+						}
+						else {
+							const sort_method = this.sortMethod;
+
+							const sortCompareMethod = this.sortCompareMethod == "greater" ? -1 : 1;
+							
+							switch (sort_method) {
+								case "name":
+									equip_list = equip_list.sort(function (a, b) {
+										let [v1 = "", v2 = ""] = [a.name, b.name];
+										return sortCompareMethod * v1.localeCompare(v2);
+									});
+									break;
+
+								case "icon":
+									equip_list = equip_list.sort(function (a, b) {
+										let [v1 = "", v2 = ""] = [a.__hash, b.__hash];
+										return sortCompareMethod * v1.localeCompare(v2);
+									});
+									break;
+
+								case "id"://default order by id
+								case "reqLevel":
+								default:
+									if (sort_method) {
+										if (sortCompareMethod == -1) {
+											equip_list = equip_list.sort(function (a, b) {
+												let v1 = Number(a[sort_method]) | 0;
+												let v2 = Number(b[sort_method]) | 0;
+												return v2 - v1;
+											});
+										}
+										else {
+											equip_list = equip_list.sort(function (a, b) {
+												let v1 = Number(a[sort_method]) | 0;
+												let v2 = Number(b[sort_method]) | 0;
+												return v1 - v2;
+											});
+										}
+									}
+							}
+						}
+					}
 				}
 				else {
 					debugger;
@@ -670,7 +755,7 @@
 			//__get_hair_color_filter: function () {
 			//},
 			__get_item: function (index) {
-				const first = this.page * config.pageSize;
+				const first = this.page * this.countOfItemsPerPage;
 
 				return this.equip_list[first + index];
 			},
@@ -688,7 +773,7 @@
 			},
 			__get_item_icon_url: function (index) {
 				let item = this.__get_item(index);
-				return item.icon && item.icon[""] ? item.icon[""] : "/images/warning.png";
+				return item.icon && item.icon[""] ? item.icon[""] : "images/warning.png";
 			},
 			__face_or_hair_img_onerror: async function (index) {
 				let item = this.__get_item(index);
@@ -701,7 +786,7 @@
 				if (item.icon && item.icon[""]) {
 					let src = item.icon[""];
 
-					if (src.startsWith("/images/")) {
+					if (src.startsWith("images/")) {
 						let sp = src.split("/");
 						let place = sp.splice(sp.length - 1, 1);
 
@@ -719,13 +804,13 @@
 						}
 					}
 				}
-				item.icon[""] = "/images/warning.png";
+				item.icon[""] = "images/warning.png";
 			},
 			clickItem: function (e, num) {
 				if (this.selected_category == "0170") {
 					let item = this.__get_item(num);
-					console.groupCollapsed("無法直接使用點裝武器");
-					console.log("click cash weapon: [%s] %s %o", item.id, item.name, item);
+					console.groupCollapsed("沒有設定職業，無法使用點裝武器");
+					console.log("click cash weapon: [%o] %o %o", item.id, item.name, item);
 					console.groupEnd();
 				}
 				else {
@@ -738,7 +823,7 @@
 						equip: item,
 					});
 
-					console.log("Use equip: [%s] %s %o", item.id, item.name, item);
+					console.log("Use equip: [%o] %o %o", item.id, item.name, item);
 				}
 			},
 			hoverItem: function (e, num) {
@@ -761,6 +846,20 @@
 					equip: item,
 				});
 			},
+			selected_category_onchange: function (value) {
+				if (value == "0002") {
+					this.face_color = Number(window.chara.renderer.faceColor);
+				}
+				else if (value == "0003" || value == "0004") {
+					this.hair_color = Number(window.chara.renderer.hairColor);
+					if (window.chara.renderer.slots.hairColor2 && window.chara.renderer.slots.hairMix2) {
+						this.hair_color2 = Number(window.chara.renderer.slots.hairColor2);
+						this.hair_mix2 = Math.trunc(Number(window.chara.renderer.slots.hairMix2) * 100);
+					}
+				}
+
+				this.search_equip(this.search_text);
+			},
 		},
 		watch: {
 			search_text: function (val, oldVal) {
@@ -774,19 +873,8 @@
 					await this.loadList();
 				}
 			},
-			selected_category: async function (value) {
-				if (value == "0002") {
-					this.face_color = Number(window.chara.renderer.faceColor);
-				}
-				else if (value == "0003" || value == "0004") {
-					this.hair_color = Number(window.chara.renderer.hairColor);
-					if (window.chara.renderer.slots.hairColor2 && window.chara.renderer.slots.hairMix2) {
-						this.hair_color2 = Number(window.chara.renderer.slots.hairColor2);
-						this.hair_mix2 = Math.trunc(Number(window.chara.renderer.slots.hairMix2) * 100);
-					}
-				}
-
-				this.search_equip(this.search_text);
+			selected_category: function (value) {
+				this.selected_category_onchange(value);
 			},
 			filters: async function () {
 				//console.log(JSON.stringify(this.filters));
@@ -822,9 +910,8 @@
 			},
 		},
 		mounted: function () {
-			this.selected_category = "0000";//body
-
-			this.$refs.select_category.value = "0000";//body
+			this.selected_category = "0000";
+			this.selected_category_onchange(this.selected_category);
 		},
 		directives: {
 			focus: {
@@ -834,25 +921,45 @@
 			}
 		},
 		components: {
-			"ui-draggable": UIDraggable,
 			"ui-button-group": UIButtonGroup,
 		},
-		mixins: [UIDialog]
 	};
 </script>
 
 <style>
+	.ui-equip-box {
+		height: 100%;
+		width: 100%;
+	}
+	
+	.ui-equip-box-content {
+		display: table;
+		height: 100%;
+		width: 100%;
+	}
+	
 	.ui-equip-box .header {
+		display: table-row;
 		text-align: left;
 	}
-	.ui-equip-box .header.btn-group, .ui-equip-box .header .pagination {
+	.ui-equip-box .header.btn-group, .ui-equip-box .pagination {
 		text-align: center;
 	}
 
 	.ui-equip-box .pagination {
+		height: 2em;
 		overflow: auto;
+		font-size: initial;
 	}
 
+	.ui-equip-box .item-list-page {
+		height: 100%;
+		display: table-row;
+	}
+	.ui-equip-box .item-list-page > * {
+		overflow: auto;
+		height: 100%;
+	}
 	.ui-equip-box .item-list {
 		list-style: none;
 		margin: auto;
@@ -960,6 +1067,11 @@
 		z-index: 1;
 	}
 
+	.ui-equip-box .mix-color {
+		text-align: center;
+		width: 3em;
+	}
+
 	.ui-equip-box .button-area > * {
 		padding-top: 1px;
 	}
@@ -981,5 +1093,55 @@
 	.ui-equip-box .button-area button > img {
 		display: block;
 		margin: auto;
+	}
+	
+	.m-pagination {
+		text-align: center;
+		background: #efefef;
+		border-top: 1px solid lightgray;
+		border-bottom: 1px solid lightgray;
+	}
+	.m-pagination-item {
+		box-sizing: border-box;
+		display: inline-block;
+		min-width: 2em;
+		width: auto;
+		text-align: center;
+		color: blue;
+		border: 1px solid transparent;
+		border-right: 1px solid darkgray;
+	}
+	.m-pagination-item:last-child {
+		border-right: 1px solid transparent;
+	}
+	.m-pagination-item:hover {
+		background: #f5f5f5;
+		border-radius: 5px;
+		border: 1px solid darkgray;
+		color: #05F;
+	}
+	.m-pagination-item.active {
+		color: red;
+	}
+	.m-pagination-item.active:hover {
+		background: #efefef;
+		border-radius: 0;
+		border: 1px solid transparent;
+		color: red;
+	}
+
+	.show-setting-fade-enter-active {
+		height: 6.6em;
+		overflow: hidden;
+		transition: all .3s ease;
+	}
+	.show-setting-fade-leave-active {
+		height: 6.6em;
+		overflow: hidden;
+		transition: all .3s ease;
+	}
+	.show-setting-fade-enter, .show-setting-fade-leave-to {
+		height: 0;
+		overflow: hidden;
 	}
 </style>

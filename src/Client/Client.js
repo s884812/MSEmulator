@@ -1,45 +1,18 @@
 ﻿
+import io from "socket.io-client";
+
 import { GameStateManager } from "../game/GameState.js";
 
 import { SceneMap } from "../game/Map.js";
 import { SceneCharacter, SceneRemoteCharacter } from "../game/SceneCharacter.js";
 
-import { CharacterMoveElem } from "../Client/PMovePath.js";//debug
+import { CharacterMoveElem, MobMoveElem } from "../Client/PMovePath.js";//debug
 import { $RequestPacket_SelectChara, $ResponsePacket_SelectChara,
 		 $Packet_RemoteChat,
 		 $Packet_CharacterMove,
 		} from "../Common/Packet";//debug
 
-import gApp from "../app.js";//debug
-
-//(function (window) {
-//	let elemSc = document.getElementById("io");
-//	function conn_io() {
-//		return new Promise(function (resolve, reject) {
-//			if (!elemSc) {
-//				elemSc = document.createElement("SCRIPT");
-//				elemSc.id = "io";
-//				elemSc.src = "//localhost:8787/socket.io/socket.io.js";
-//				elemSc.onload = function () {
-//					resolve(true);
-//				};
-//				document.body.append(elemSc);
-//			}
-//			else {
-//				resolve(true);
-//			}
-//		});
-//	};
-//	conn_io().then(function () {
-//		let socket = io("//localhost:8787");
-//		socket.emit("chat", "hello");
-//		socket.on("gWvs", function (msg) {
-//			console.log("gWvs: " + msg);
-//		});
-//	});
-//
-//	window.$io = socket;
-//})(window);
+import { app as gApp } from "../index.js";//debug
 
 class $Socket {
 	/**
@@ -60,8 +33,7 @@ class $Socket {
 export class Client {
 	constructor() {
 		/** @type {$Socket} */
-		this.socket = this._conn();
-		window.$io = this.socket;
+		this.socket = null;
 
 		/** @type {{[id:string]:SceneCharacter}} */
 		this.charaMap = {};
@@ -108,48 +80,48 @@ export class Client {
 			//}
 		});
 	}
-
-	/** @returns {$Socket} */
-	_conn() {
-		let socket;
-
-		if (window.io != null) {
-			let url = new URL(window.location);
-			url.port = 8787;
-
-			socket = io(url.href);
-
-			const emit = socket.emit;
-
-			socket.emit = function (eventName, data) {
-				//let cbfunc = arguments[arguments.length - 1];
-				//if (typeof cbfunc == 'function') {
-				//	emit(eventName, data, cbfunc);
-				//}
-				//else {
-				return new Promise(function (resolve, reject) {
-					emit.call(socket, eventName, data, function () {
-						resolve.apply(this, arguments);
-					});
-				});
-				//}
-			};
-		}
-		else {
-			socket = {
-				emit() {
-					return true;
-				},
-				on() {
-					return true;
-				},
-				once() {
-					return true;
-				},
-			};
-		}
-
-		return socket;
+	
+	/**
+	 * @type {string} server_href
+	 * @returns {Promise<$Socket>}
+	 */
+	async connect(server_href) {
+		return await new Promise((resolve, reject) => {
+			let socket;
+			
+			socket = io(server_href);
+			
+			socket.on("connect", () => {
+				this.socket = socket;
+				
+				window.$io = this.socket;
+				
+				const emit = socket.$emit = socket.emit;
+				
+				socket.emit = function (eventName, data) {
+					//let cbfunc = arguments[arguments.length - 1];
+					//if (typeof cbfunc == 'function') {
+					//	emit(eventName, data, cbfunc);
+					//}
+					//else {
+						return new Promise(function (resolve, reject) {
+							emit.call(socket, eventName, data, function (...args) {
+								resolve.apply(this, args);
+							});
+						});
+					//}
+				};
+				
+				resolve(socket);
+			});
+			socket.on("disconnect", () => {
+				//window.location.reload();
+			});
+			socket.on("connect_error", error => {
+				socket.disconnect();
+				reject(error);
+			});
+		});
 	}
 
 	/** @type {SceneMap} */
@@ -205,18 +177,24 @@ export class Client {
 
 		if (charaData) {
 			try {
-				this._CreateMyCharacter(charaData);
-				this.onEnterRemoteChara(remoteCharacters);
+				await this.$scene_map.load(charaData.mapId);
+				
+				let task1 = this._CreateMyCharacter(charaData);
+				let task2 = this.onEnterRemoteChara(remoteCharacters);
+				
+				await Promise.all([task1, task2]);
 			}
 			catch (ex) {
-				alert(err.message);
-				console.error(err);
+				console.error(ex);
 			}
 		}
 		else {
 			alert("selectChara: chara not exist");
 		}
 	}
+	/**
+	 * online mode
+	 */
 	async _CreateMyCharacter(charaData) {
 		/** @type {SceneCharacter} */
 		let chara = await gApp.store.dispatch('_createChara', {
@@ -226,14 +204,32 @@ export class Client {
 			}
 		});
 		this.chara = chara;
-		this.chara.$physics = this.$scene_map.controller.$createPlayer();
 
-		this.$scene_map.load(charaData.mapId);
-
-		chara._$data = {
+		chara._$data = chara._$data || {
 			guildId: "",//guildId == guildName
 			partyId: "",//partyId == partyName
 		}
+	}
+	/**
+	 * offline mode
+	 * @param {{id:string,equips_code:string}} charaData
+	 */
+	static async _CreateMyCharacter(charaData) {//??
+		/** @type {SceneCharacter} */
+		let chara = await gApp.store.dispatch('_createChara', {
+			emplace: {
+				id: charaData.id,
+				code: charaData.equips_code,
+			}
+		});
+		chara = chara;
+
+		chara._$data = chara._$data || {
+			guildId: "",//guildId == guildName
+			partyId: "",//partyId == partyName
+		}
+
+		return chara;
 	}
 	/**
 	 * @param {$RemotePlayerData[]} packet - characters
@@ -248,14 +244,12 @@ export class Client {
 					id: charaData.id,
 					code: charaData.equips_code,
 				}
-			}).then(arg0 => {
+			}).then((...args) => {
 				try {
 					const world = this.$scene_map.controller;
 
 					/** @type {SceneRemoteCharacter} */
-					let chara = arg0;
-					
-					chara.$physics = world.$createRemotePlayer(chara.$$renderer);
+					let chara = args[0];
 
 					this.charaMap[chara.id] = chara;
 				}
@@ -266,6 +260,71 @@ export class Client {
 			});
 		});
 		return Promise.all(tasks);
+	}
+
+	/**
+	 * @param {{ id: string }} packet
+	 */
+	onLeaveRemoteChara(packet) {
+		const remoteId = packet.id;
+
+		gApp.store.dispatch('deleteCharacter', {
+			id: remoteId,
+			leave: true,
+		}).then(() => {
+			console.log("onLeaveRemoteChara[%o]", remoteId);
+		}, (reason) => {
+			console.log("onLeaveRemoteChara[%o]: %o", remoteId, reason);
+		});
+		delete this.charaMap[packet.id];
+	}
+
+	/**
+	 * @param {MobMoveElem} packet
+	 */
+	onMobMove(packet) {
+		/** @type {SceneMap} */
+		let scene_map = window.scene_map;
+
+		if (!this.chara) {
+			return;
+		}
+
+		if (this.chara.$objectid == packet.controllerOwner) {
+		}
+		else if (true) {
+			const elements = packet.elements;
+			scene_map.lifeMgr.entities.forEach(life => {
+				const elem = elements[life.$objectid];
+				if (life.spawn.type == "m" && elem) {
+					/** @type {MapMob} *///SceneMob
+					const mob = life;
+					mob.$controllerOwner = packet.controllerOwner;
+					mob.$move(elem);
+				}
+			});
+		}
+		else {
+			let arr = new Int32Array(packet.elements);
+			let elements = {};
+
+			for (let i = 0; i < arr.length; i += 3) {
+				elements[arr[i]] = {
+					x: arr[i + 1] / $gv.CANVAS_SCALE,
+					y: arr[i + 2] / $gv.CANVAS_SCALE,
+				};
+			}
+
+			scene_map.lifeMgr.entities.forEach(life => {
+				const elem = elements[life.$objectid];
+				if (life.spawn.type == "m" && elem) {
+					/** @type {MapMob} *///SceneMob
+					const mob = life;
+					mob.$controllerOwner = packet.controllerOwner;
+					mob.$move(elem);
+				}
+			});
+		}
 	}
 
 	/**
@@ -315,6 +374,10 @@ export class Client {
 
 	async $test() {
 		this.socket.on("enterRemoteChara", this.onEnterRemoteChara.bind(this));
+		this.socket.on("leaveRemoteChara", this.onLeaveRemoteChara.bind(this));
+
+		this.socket.on("mobMove", this.onMobMove.bind(this));
+
 		this._addRemoteCharaPacketListener("remoteChat", this.onRemoteChat);
 		this._addRemoteCharaPacketListener("remoteCharaMove", this.onRemoteCharaMove);
 		this._addRemoteCharaPacketListener("remoteCharaAnim", this.onRemoteCharaAnim);

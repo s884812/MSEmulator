@@ -7,7 +7,21 @@
 
 <script>
 	export default {
-		props: ['items'],
+		props: {
+			items: {
+				required: true,
+				type: Array,
+			},
+			options: {
+				default: function () {
+					return {
+						//handle: "p",
+						cancel: ".ui-no-interactions",
+						axis: "y",
+					};
+				},
+			},
+		},
 		//render: function (createElement) {
 		//	let es = [];
 		//	let render = this.render;
@@ -26,15 +40,16 @@
 					throw new Error("Can't get value before update.");
 				}
 				
-				let indices = {};
-				for (let i = 0; i < order.length; ++i) {
-					indices[order[i]] = i;
+				let item_map = {};
+				for (let i = 0; i < this.items.length; ++i) {
+					const item = this.items[i];
+					item_map[item.id] = item;
 				}
-
+				
 				let new_list = [];
+				
 				for (let i = 0; i < order.length; ++i) {
-					const id = order[i];
-					new_list[i] = this.items[indices[id]];
+					new_list[i] = item_map[order[i]];
 				}
 				
 				this.$emit('update:items', new_list);	//output value by async
@@ -42,11 +57,11 @@
 			}
 		},
 		mounted: function () {
-			let that = this;
-			let $$el = $(this.$el);
-			$$el.sortable({
+			const $$el = $(this.$el);
+			const options = Object.assign({
 				update: this.getValue.bind(this)
-			});
+			}, this.options);
+			$$el.sortable(options);
 			$$el.disableSelection();
 		},
 		beforeUpdate: function () {
@@ -73,6 +88,7 @@
 		},
 		watch: {
 			items: function (newValue) {
+				//$(this.$el).sortable();//make sortable
 			}
 		},
 	}

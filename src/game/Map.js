@@ -14,6 +14,10 @@ import { ParticleGroup } from "./Renderer/ParticleSystem.js";
 
 import { World } from "./Physics/World.js";
 import { Ground } from "./Physics/Ground.js";
+import { PMob } from "./Physics/PMob.js";
+import { SceneObject } from "./SceneObject.js";
+
+import { MobMoveElem } from "../Client/PMovePath.js";
 
 
 window.enable_skeletal_anim = true;
@@ -29,14 +33,16 @@ const map_sprite = {
 
 window.$map_sprite = map_sprite;
 
+$gv.allQuest = {};
+
 async function map_load_package(cat, pack) {
 	if (!cat || !pack) {
 		debugger;
 	}
 	if (!map_sprite[cat][pack]) {
-		let url = `/Map/${cat}/${pack}.img/`;
+		let url = `/Map/${cat}/${pack}`;
 		
-		map_sprite[cat][pack] = JSON.parse(await $get.data(url));
+		map_sprite[cat][pack] = await $get.data(url);
 
 		if (map_sprite[cat][pack] == null) {
 			console.warn("Empty package: " + url);
@@ -75,16 +81,15 @@ class MapTexture extends Sprite {
 	}
 
 	/**
+	 * @param {IRenderer} renderer
 	 * @param {boolean} f - flip
 	 * @param {number} px - position.x:int
 	 * @param {number} py - position.y:int
 	 * @param {number} time - movement_animation:float
 	 * @param {number} delta - graph_animation:float
-	 * @param {boolean} display
 	 * @param {maple_scene_label} border
-	 * @param {IRenderer} renderer
 	 */
-	draw(f, px, py, time, delta, display, renderer) {
+	draw(renderer, f, px, py, time, delta) {
 		let ratio = time / this.delay;
 		let alpha = (0 <= this.a0 || 0 <= this.a1 ? ((0 > this.a0 ? 0 : this.a0) * (1.0 - ratio) + (0 > this.a1 ? 0 : this.a1) * ratio) : 255.0);
 		let angle = 0;
@@ -94,33 +99,31 @@ class MapTexture extends Sprite {
 			case 2: py = py + this.moveh * Math.sin(0 == this.movep ? (delta / 1000.0) : (delta * 2.0 * Math.PI / this.movep)); break;
 			case 3: if (0 != this.mover) angle = delta / this.mover; break;
 		}
+		
+		let ctx = renderer.ctx;
+		function axis(x, y, w, h, c1, c2) {
+			ctx.beginPath();
+			ctx.moveTo(x, y);
+			ctx.lineTo(x + w, y);
+			stroke(c1, c2);
 
-		if (display) {
-			let ctx = renderer.ctx;
-			function axis(x, y, w, h, c1, c2) {
-				ctx.beginPath();
-				ctx.moveTo(x, y);
-				ctx.lineTo(x + w, y);
-				stroke(c1, c2);
+			ctx.beginPath();
+			ctx.moveTo(x, y);
+			ctx.lineTo(x, y + h);
+			stroke(c2, c1);
+		}
+		function stroke(c1, c2) {
+			ctx.lineWidth = 3;
+			ctx.strokeStyle = c1;
+			ctx.stroke();
+		}
 
-				ctx.beginPath();
-				ctx.moveTo(x, y);
-				ctx.lineTo(x, y + h);
-				stroke(c2, c1);
-			}
-			function stroke(c1, c2) {
-				ctx.lineWidth = 3;
-				ctx.strokeStyle = c1;
-				ctx.stroke();
-			}
+		renderer.loadIdentity();
+		renderer.translate(Math.trunc(-$gv.m_viewRect.x + 0.5), Math.trunc(-$gv.m_viewRect.y + 0.5));
+		{
+			renderer.globalAlpha = Math.max(0, Math.min(alpha / 255, 1));
 
-			renderer.loadIdentity();
-			renderer.translate(Math.trunc(-$gv.m_viewRect.x + 0.5), Math.trunc(-$gv.m_viewRect.y + 0.5));
-			{
-				renderer.globalAlpha = Math.max(0, Math.min(alpha / 255, 1));
-
-				renderer._drawRotaGraph(this, px, py, angle, f);
-			}
+			renderer._drawRotaGraph(this, px, py, angle, f);
 		}
 	}
 }
@@ -154,6 +157,7 @@ class MapObjectBase {
 		}
 		this._raw = _raw;
 
+
 		/** @type {MapTexture[]} */
 		this.textures = [];
 
@@ -166,14 +170,24 @@ class MapObjectBase {
 		/** @type {number} timeElapsed_in_ms:float */
 		this.delta = 0;
 
+
+		/** @type {{[questId:string]: number}} */
+		this.quest = _raw.quest;
+
+		for (let qid in _raw.quest) {
+			if (!$gv.allQuest[qid]) {
+				$gv.allQuest[qid] = new Set();
+			}
+			$gv.allQuest[qid].add(_raw.quest[qid]);
+		}
 		
 		this._load_object_info();
 		this._load_back_info();
 		this._load_tile_info();
 
 		this.aabb = null;
-		this.$display_aabb = false;
-		this.$aabb_color = null;
+		this.display_aabb = false;
+		this.aabb_color = null;
 		
 		if (process.env.NODE_ENV !== 'production') {
 			this.__max_repeat_count = 1;
@@ -312,14 +326,57 @@ class MapObjectBase {
 
 	update(stamp) {
 		const fc = this.textures.length;
-		
+
 		if (fc > 1) {
 			this.time = this.time + stamp;
 
 			if (this.time > this.textures[this.frame].delay) {
-				this.frame = ++this.frame % fc;
+				this.frame = ++this.frame;
+
 				this.time = 0;
+
+				if (this.frame >= fc) {
+					this.frame = 0;
+				}
 			}
+			//this.frame = Math.trunc(this.time / 1000) % fc;
+		}
+
+		this.delta += stamp;
+
+		if ($gv.m_editor_mode && this.aabb) {
+			this.$editor_mouse();
+		}
+	}
+	_update_and_preload(stamp) {
+		const fc = this.textures.length;
+		
+		if (fc > 1) {
+			const texture = this.textures[this.frame];
+
+			this.time = this.time + stamp;
+			
+			if (!texture.isLoaded()) {
+				texture.__loadTexture();
+			}
+
+			if (this.time > texture.delay) {
+				this.frame = ++this.frame;
+
+				this.time = 0;
+
+				if (this.frame >= fc) {
+					this.frame = 0;
+
+					delete this.update;
+				}
+			}
+
+			const next_texture = this.textures[this.frame + 1];
+			if (next_texture && !next_texture.isLoaded()) {
+				next_texture.__loadTexture();
+			}
+
 			//this.frame = Math.trunc(this.time / 1000) % fc;
 		}
 		
@@ -335,24 +392,24 @@ class MapObjectBase {
 		const mcy = $gv.m_viewRect.top + $gv.mouse_y;
 		if (this.typeb == 0 && this.aabb.collide4f2(mcx, mcy, 1, 1))
 		{
-			this.$display_aabb = true;
+			this.display_aabb = true;
 			if ($gv.mouse_dl == 1 && (window.m_selected_object != this || window.m_selected_object == null)) {
 				this.$select();
 			}
 			else if (window.m_hover_object == null) {
 				window.m_hover_object = this;
-				this.$aabb_color = "rgba(0,255,0,0.25)";
+				this.aabb_color = "rgba(0,255,0,0.25)";
 			}
 			else {
-				this.$aabb_color = "rgba(0,0,255,0.25)";
+				this.aabb_color = "rgba(0,0,255,0.25)";
 			}
 		}
 		else {
 			this.$unselect();
 		}
 		if (window.m_selected_object == this) {
-			this.$display_aabb = true;
-			this.$aabb_color = "rgba(255,0,0,0.5)";
+			this.display_aabb = true;
+			this.aabb_color = "rgba(255,0,0,0.5)";
 		}
 	}
 	$select() {
@@ -364,7 +421,7 @@ class MapObjectBase {
 		$gv.mouse_dl = 0;
 	}
 	$unselect() {
-		this.$display_aabb = false;
+		this.display_aabb = false;
 	}
 	$isRepeatX() {
 		return this.typeb == 1 || this.typeb == 4;
@@ -375,11 +432,12 @@ class MapObjectBase {
 	
 	compute_rectangle(index) {
 		const texture = this.textures[index];
-		
-		const width = texture.width;
-		const height = texture.height;
+		if (texture) {
+			const width = texture.width;
+			const height = texture.height;
 
-		return new Rectangle(this.x - (this.f ? -texture.x + width : texture.x), this.y - texture.y, width, height);
+			return new Rectangle(this.x - (this.f ? -texture.x + width : texture.x), this.y - texture.y, width, height);
+		}
 	}
 	compute_max_rectangle() {
 		if (this.textures.length > 0) {
@@ -399,31 +457,40 @@ class MapObjectBase {
 	}
 
 	/**
-	 * @virtaul
+	 * @virtual
+	 * @param {IRenderer} renderer
 	 * @param {number} index_of_texture
 	 * @param {number} mx - move x
 	 * @param {number} my - move x
-	 * @param {Rectangle} canva
-	 * @param {boolean} display
-	 * @param {IRenderer} renderer
+	 * @param {Rectangle} viewRect
 	 */
-	__draw_texture(index_of_texture, mx, my, canva, display, renderer) {
+	__draw_texture(renderer, index_of_texture, mx, my, viewRect) {
 		if (process.env.NODE_ENV !== 'production') {
 			if ((--this.__max_repeat_count) <= 0) {
 				return;
 			}
 		}
 		
-		display = display && this.display != false;
-		
-		if (this.typeb != 0 || (!this.aabb || this.aabb.collide(canva))) {
-			this.textures[index_of_texture].draw(this.f, this.x + mx, this.y + my, this.time, this.delta, display, renderer);//MapleSceneTexture#draw
+		if (this.typeb != 0 || (!this.aabb || this.aabb.collide(viewRect))) {
+			let texture = this.textures[index_of_texture];
+
+			if (index_of_texture && !texture.isLoaded()) {
+				// find loaded texture
+				for (let i = index_of_texture - 1; i >= 0; --i) {
+					texture = this.textures[index_of_texture];
+					if (texture.isLoaded()) {
+						break;
+					}
+				}
+			}
+			
+			texture.draw(renderer, this.f, this.x + mx, this.y + my, this.time, this.delta);//MapleSceneTexture#draw
 		}
 		
-		if ($gv.m_display_selected_object && $gv.m_editor_mode && display && this.aabb && this.$display_aabb) {
+		if ($gv.m_display_selected_object && $gv.m_editor_mode && this.aabb && this.display_aabb) {
 			const ctx = renderer.ctx;
-			const x = Math.trunc((-canva.left + 0.5) + this.aabb.left);
-			const y = Math.trunc((-canva.top + 0.5) + this.aabb.top);
+			const x = Math.trunc((-viewRect.left + 0.5) + this.aabb.left);
+			const y = Math.trunc((-viewRect.top + 0.5) + this.aabb.top);
 			
 			renderer.loadIdentity();
 
@@ -431,7 +498,7 @@ class MapObjectBase {
 			
 			ctx.beginPath();
 			ctx.rect(x, y, this.aabb.width, this.aabb.height);
-			ctx.fillStyle = this.$aabb_color || "rgba(20,255,20,0.5)";//
+			ctx.fillStyle = this.aabb_color || "rgba(20,255,20,0.5)";//
 			ctx.fill();
 			
 			ctx.lineWidth = 3;
@@ -454,36 +521,32 @@ class MapObjectBase {
 	
 	/**
 	 * @protected
+	 * @param {IRenderer} renderer
 	 * @param {int} mx
 	 * @param {int} my
-	 * @param {Rectangle} canva
-	 * @param {boolean} display
-	 * @param {IRenderer} renderer
+	 * @param {Rectangle} viewRect
 	 */
-	__draw(mx, my, canva, display, renderer) {
-		this.__draw_texture(this.frame, mx, my, canva, display, renderer);//MapleSceneTexture#draw
+	__draw(renderer, mx, my, viewRect) {
+		this.__draw_texture(renderer, this.frame, mx, my, viewRect);//MapleSceneTexture#draw
 	}
 
 	/**
+	 * @param {IRenderer} renderer
 	 * @param {boolean} horizontal
 	 * @param {boolean} vertical
-	 * @param {number} mx : int
-	 * @param {number} my : int
-	 * @param {Rectangle} canva
-	 * @param {boolean} display
-	 * @param {IRenderer} renderer
+	 * @param {number} mx - int
+	 * @param {number} my - int
+	 * @param {Rectangle} viewRect
 	 */
-	_draw(horizontal, vertical, mx, my, canva, display, renderer) {
+	_draw(renderer, horizontal, vertical, mx, my, viewRect) {
 		let texture = this.textures[this.frame];
-		if (texture == null || !texture.isLoaded()) {
+		if (texture == null) {
+			debugger;
 			return;
 		}
 
-		// canva rectangle
-		let left = canva.left;
-		let top = canva.top;
-		let right = canva.right;
-		let bottom = canva.bottom;
+		// viewRect - canvas rectangle
+		let { left, top, right, bottom } = viewRect;
 		// image position
 		let ix = this.x - (this.f ? -texture.x + texture.width : texture.x);
 		let iy = this.y - texture.y;
@@ -504,36 +567,38 @@ class MapObjectBase {
 			if (vertical)
 				for (let yy = y1; yy < y2; yy = yy + th)
 					for (let xx = x1; xx < x2; xx = xx + tw)
-						this.__draw(xx - ix, yy - iy, canva, display, renderer);
+						this.__draw(renderer, xx - ix, yy - iy, viewRect);
 			else
 				for (let xx = x1; xx < x2; xx = xx + tw)
-					this.__draw(xx - ix, my, canva, display, renderer);
+					this.__draw(renderer, xx - ix, my, viewRect);
 		else if (vertical)
 			for (let yy = y1; yy < y2; yy = yy + th)
-				this.__draw(mx, yy - iy, canva, display, renderer);
+				this.__draw(renderer, mx, yy - iy, viewRect);
 		else
-			this.__draw(mx, my, canva, display, renderer);
+			this.__draw(renderer, mx, my, viewRect);
 	}
 
 	/**
-	 * @param {Vec2} center
-	 * @param {Rectangle} canva
-	 * @param {bool} display
 	 * @param {IRenderer} renderer
+	 * @param {Vec2} center
+	 * @param {Rectangle} viewRect
 	 */
-	draw(center, canva, display, renderer) {
+	draw(renderer, center, viewRect) {
+		if (!this.textures.length) {
+			return;
+		}
 		let mrx = (this.rx + 100) * center.x / 100;
 		let mry = (this.ry + 100) * center.y / 100;
 
 		switch (this.typeb) {
-			case 0: this._draw(false, false, mrx, mry, canva, display, renderer); break;
-			case 1: this._draw(true, false, mrx, mry, canva, display, renderer); break;
-			case 2: this._draw(false, true, mrx, mry, canva, display, renderer); break;
-			case 3: this._draw(true, true, mrx, mry, canva, display, renderer); break;
-			case 4: this._draw(true, false, Math.trunc(this.delta / 200 * this.rx), mry, canva, display, renderer); break;
-			case 5: this._draw(false, true, mrx, Math.trunc(this.delta / 200 * this.ry), canva, display, renderer); break;
-			case 6: this._draw(true, true, Math.trunc(this.delta / 200 * this.rx), mry, canva, display, renderer); break;
-			case 7: this._draw(true, true, mrx, Math.trunc(this.delta / 200 * this.ry), canva, display, renderer); break;
+			case 0: this._draw(renderer, false, false, mrx, mry, viewRect); break;
+			case 1: this._draw(renderer, true, false, mrx, mry, viewRect); break;
+			case 2: this._draw(renderer, false, true, mrx, mry, viewRect); break;
+			case 3: this._draw(renderer, true, true, mrx, mry, viewRect); break;
+			case 4: this._draw(renderer, true, false, Math.trunc(this.delta / 200 * this.rx), mry, viewRect); break;
+			case 5: this._draw(renderer, false, true, mrx, Math.trunc(this.delta / 200 * this.ry), viewRect); break;
+			case 6: this._draw(renderer, true, true, Math.trunc(this.delta / 200 * this.rx), mry, viewRect); break;
+			case 7: this._draw(renderer, true, true, mrx, Math.trunc(this.delta / 200 * this.ry), viewRect); break;
 		}
 	}
 	
@@ -575,6 +640,8 @@ class MapObject extends MapObjectBase {
 				this.typeb = 2;
 			}
 		}
+
+		this.update = this._update_and_preload;
 	}
 
 	/**
@@ -588,13 +655,13 @@ class MapObject extends MapObjectBase {
 		let path = ["/Map", "Obj", this._texture_base_path, i].join("/");
 
 		let texture = new MapTexture(this._texture_raw[i], null_url, texture0);
-		texture._url = "/images" + path;
+		texture._url = path;
 
 		return texture;
 	}
 
 	get _texture_base_path() {
-		return [this._raw.oS + ".img", this._raw.l0, this._raw.l1, this._raw.l2].join("/");
+		return [this._raw.oS, this._raw.l0, this._raw.l1, this._raw.l2].join("/");
 	}
 
 	/**
@@ -612,9 +679,10 @@ class MapObject extends MapObjectBase {
 	}
 }
 
-class MapParticle extends MapObjectBase {
+class MapParticle extends MapObject {
 	constructor(_raw) {
 		super(_raw);
+		/** @type {ParticleGroup[]} */
 		this.groups = [];
 	}
 	
@@ -622,8 +690,19 @@ class MapParticle extends MapObjectBase {
 		let pg = new ParticleGroup();
 		
 		await pg.load(particle_name);
+
+		let keys = Object.keys(this._raw)
+			.map(i => {
+				let n = parseInt(i, 10);
+				if (Number.isSafeInteger(n)) {
+					return n;
+				}
+				console.warn("MapParticle." + particle_name + ".id: " + i);
+				return null;
+			})
+			.filter(i => i != null);
 			
-		for (let i = 0; i in this._raw; ++i) {
+		for (let i of keys) {
 			this.groups[i] = pg.clone();
 			this.groups[i].x = this._raw[i].x;
 			this.groups[i].y = this._raw[i].y;
@@ -638,18 +717,25 @@ class MapParticle extends MapObjectBase {
 			pg.update(stamp);
 		}
 	}
-	
-	draw(center, canva, display, renderer) {
-		if (this.display != false) {
-			for (let i = 0; i < this.groups.length; ++i) {
-				const pg = this.groups[i];
-				let mx = (this.rx + 100) * center.x / 100;
-				let my = (this.ry + 100) * center.y / 100;
-				pg.render(renderer, canva, mx, my);
-			}
+
+	/**
+	 * @param {IRenderer} renderer
+	 * @param {Vec2} center
+	 * @param {Rectangle} viewRect
+	 */
+	draw(renderer, center, viewRect) {
+		for (let i = 0; i < this.groups.length; ++i) {
+			const pg = this.groups[i];
+			let mx = (this.rx + 100) * center.x / 100;
+			let my = (this.ry + 100) * center.y / 100;
+			pg.render(renderer, viewRect, mx, my);
 		}
 	}
-	
+
+	/**
+	 * @param {{particle:{[name:string]:{}}}} mapRawData
+	 * @param {SceneMap} sceneMap
+	 */
 	static construct(mapRawData, sceneMap) {
 		let tasks = [];
 		let particleList = [];
@@ -679,7 +765,7 @@ class MapObjectSkeletalAnim extends MapObject {
 	get _folder() {
 		const raw = this._raw;
 		//["Obj"	 ][obj.oS][obj.l0][obj.l1][obj.l2][0    ][""]
-		return `/Map/Obj/${raw.oS}.img/${raw.l0}/${raw.l1}/${raw.l2}`;
+		return `/Map/Obj/${raw.oS}/${raw.l0}/${raw.l1}/${raw.l2}`;
 	}
 	async load() {
 		if (SSAnim) {
@@ -698,7 +784,7 @@ class MapObjectSkeletalAnim extends MapObject {
 			}
 			
 			if (raw.spineRandomStart) {
-				let t = ssanim.getAnimLength() * Math.random();
+				let t = ssanim.anim_length * Math.random();
 				ssanim.setAnimTime(t);
 			}
 			
@@ -725,29 +811,27 @@ class MapObjectSkeletalAnim extends MapObject {
 			this.ssanim.update(stamp);
 		}
 	}
+
 	/**
-	 * @param {Vec2} center
-	 * @param {Rectangle} canva
-	 * @param {bool} display
 	 * @param {IRenderer} renderer
+	 * @param {Vec2} center
+	 * @param {Rectangle} viewRect - ?? no use
 	 */
-	draw(center, canva, display, renderer) {
-		if ($gv.m_display_skeletal_anim && display) {
+	draw(renderer, center, viewRect) {
+		if ($gv.m_display_skeletal_anim) {
 			const x = Math.trunc((-$gv.m_viewRect.x + 0.5) + this.x);
 			const y = Math.trunc((-$gv.m_viewRect.y + 0.5) + this.y);
-			
+
 			renderer.ctx.setTransform(1, 0, 0, -1, x, y);
-					
-			if (this.display != false) {
-				if (this.ssanim) {
-					this.ssanim.render();
-				}
+
+			if (this.ssanim) {
+				this.ssanim.render();
 			}
-			if (display && this.display_aabb) {
+			if (this.display_aabb) {
 				const ctx = renderer.ctx;
-			
+
 				renderer.ctx.setTransform(1, 0, 0, 1, Math.trunc(-$gv.m_viewRect.x + 0.5), Math.trunc(-$gv.m_viewRect.y + 0.5));
-			
+
 				ctx.beginPath();
 				ctx.rect(this.x - this.ssanim.width * 0.5, this.y - this.ssanim.height, this.ssanim.width, this.ssanim.height);
 				ctx.fillStyle = "rgba(20,255,20,0.5)";
@@ -761,10 +845,15 @@ class MapTile extends MapObject {
 	constructor(_raw, info) {
 		super(_raw);
 		this._info = info;
+		this.update = this._update_and_preload;
 	}
 	load() {
-		this.textures[0] = new MapTexture(this._texture_raw);
-		this.textures[0]._url = ["/images", "Map", "Tile", this._info.tS + ".img", this._raw.u, this._raw.no].join("/");
+		let texture = new MapTexture(this._texture_raw);
+
+		this.textures[0] = texture;
+		this.textures[0]._url = ["/Map", "Tile", this._info.tS, this._raw.u, this._raw.no].join("/");
+
+		this.__calc_aabb();
 	}
 
 	/**
@@ -782,23 +871,28 @@ class MapTile extends MapObject {
 	}
 	
 	get _texture_base_path() {
-		return [this._info.tS + ".img", this._raw.u, this._raw.no].join("/");
+		return [this._info.tS, this._raw.u, this._raw.no].join("/");
 	}
 }
 
 /**
  * MapEditor: Map Portal
- * Map graph (struct): "Map/Map/Graph.img/"
+ * Map graph (struct): "Map/Map/Graph/"
  */
 class MapPortal extends MapObject {
 	constructor(_raw, mapRenderer) {
 		super(_raw);//load x, y
 		
-		/** @type {number} */
+		this.mapRenderer = mapRenderer;
+		
+		/** @type {number} - to mapId */
 		this.tm = null;
 		
-		/** @type {string} */
+		/** @type {string} - tn to pn */
 		this.tn = null;
+
+		/** @type {string} - pn to tn */
+		this.pn = null;
 		
 		/** @type {string} */
 		this.script = null;
@@ -806,29 +900,28 @@ class MapPortal extends MapObject {
 		/** @type {boolean} */
 		this.enable = null;
 		
-		this.mapRenderer = mapRenderer;
+		/** @type {"portalStart"|"portalContinue"|"portalExit"} */
+		this.state = null;
+
+		/** @type {["portalStart","portalContinue","portalExit"]} */
+		this.states = null;
+
+		/** @type {number} */
+		this.skin = null;
+
+		this.update = this._update_and_preload;
 	}
 	
 	//sync
 	load() {
-		let index = this._get(0, "pt", Number);
-		
-		//MapObject::type
-		if (index in this._pts_game) {
-			this.type = "p";
-		}
-		else {
-			this.type = "q";
-		}
-		
-		this.tm	= this._get("", "tm", String).padStart(9, "0");//??
-		this.tn	= this._get("", "tn", String);//??
-		this.pn	= this._get("", "pn", String);//pt_go01 => goto portal_01
-		this.script	= this._get(null, "script", String);
-		
-		this.textures[0] = MapPortal._portals[index];
+		this.tm = this._get("", "tm", String).padStart(9, "0");//??
+		this.tn = this._get("", "tn", String);//??
+		this.pn = this._get("", "pn", String);//pt_go01 => goto portal_01
+		this.script = this._get(null, "script", String);
 		
 		this.enable = this.tm != "" && this.tm != "999999999";
+
+		this._loadTexture();
 	}
 	unload() {
 		if (this.body) {
@@ -843,99 +936,120 @@ class MapPortal extends MapObject {
 		}
 	}
 	
-	//sensor-fixture has no preSolve(contact, oldManifold, fa, fb)
-	beginContact(contact, fa, fb) {
-	}
-	
 	/**
-	 * @param {Vec2} center
-	 * @param {Rectangle} canva
-	 * @param {bool} display
 	 * @param {IRenderer} renderer
+	 * @param {Vec2} center
+	 * @param {Rectangle} viewRect
 	 */
-	draw(center, canva, display, renderer) {
+	draw(renderer, center, viewRect) {
 		if (this.enable) {
-			super.draw(center, canva, display, renderer);
+			super.draw(renderer, center, viewRect);
+		}
+		else if (this.__display_mode) {
+			super.draw(renderer, center, viewRect);
+		}
+	}
+
+	_loadTexture() {
+		///** @type {number} */
+		//let type = this._raw.pt;
+		//
+		//let skins = this._loaded_portals[this.__display_mode][type];
+		//
+		//this.textures = skins.default || skins[0];
+
+		//MapObject::type
+		if (this.__display_mode == "game") {
+			this.type = "p";//??
+		}
+		else {
+			this.type = "q";//??
+		}
+
+		const _raw = MapPortal._portals_raw;
+
+		this.textures.length = 0;//clear
+
+		const type = MapPortal._type_map[this._raw.pt];
+		
+		if (this.__display_mode == "editor") {
+			let texture = new MapTexture(_raw.editor[type]);
+			texture._url = [this._texture_base_path, this.__display_mode, type].join("/");
+			this.textures[0] = texture;
+		}
+		else if (_raw.game[type]) {
+			let skin = this.skin != null ? this.skin : "default";
+			if ("0" in _raw.game[type][skin]) {//is animation frames
+				let textures = _raw.game[type][skin];
+				for (let i in textures) {
+					let texture = new MapTexture(textures[i]);
+					texture._url = [this._texture_base_path, this.__display_mode, type, skin, i].join("/");
+					this.textures.push(texture);
+				}
+			}
+			else {
+				//TODO: need default state
+				this.states = Object.keys(_raw.game[type][skin]);
+				this.state = this.states[1 % this.states.length];
+
+				let textures = _raw.game[type][skin][this.state];
+				for (let i in textures) {
+					let texture = new MapTexture(textures[i]);
+					texture._url = [this._texture_base_path, this.__display_mode, type, skin, this.state, i].join("/");
+					this.textures.push(texture);
+				}
+			}
+		}
+
+		//reset
+		this.delta = 0;
+		this.time = 0;
+		this.frame = 0;
+	}
+
+	get _texture_base_path() {
+		return "/Map/MapHelper/portal";
+	}
+	get _getTexturePath() {
+		if (this.__display_mode == "editor") {
+			return ["/Map/MapHelper/portal", this.__display_mode].join("/");
+		}
+		else {
+			return ["/Map/MapHelper/portal", this.__display_mode].join("/");
 		}
 	}
 	
 	/**
-	 * raw data
-	 * textures; info & data
-	 */
-	get _texture_raw() {
-		try {
-			return this._pts[this.type];
-		}
-		catch (ex) {
-			debugger;
-		}
-		return null;
-	}
-	
-	/**
-	 * @returns {string}
+	 * @returns {"editor"|"game"}
 	 */
 	get __display_mode() {
-		return "editor";
+		return $gv.m_editor_mode ? "editor" : "game";
 	}
-	
-	get _texture_base_path() {
-		return "/Map/MapHelper.img/portal/" + this.__display_mode;
-	}
-	
-	/**
-	 * @static
-	 * @returns {string[]}
-	 */
-	get _pts() {
-		return this["_pts_" + this.__display_mode];
-	}
-	
-	get _pts_game() {
-		return [ "pv", "ph", "psh" ];
 
-	}
-	
-	get _pts_editor() {
-		return [ "sp", "pi", "pv", "pc", "pg", "tp", "ps", "pgi", "psi", "pcs", "ph", "psh",			
-			"pci",//"pcj",//
-			"pcj",//"pci",//			
-			//"pci2",
-			"pcig", "pshg"
-		];
-	}
+	///**
+	// * @type {{editor:{[pt:number]:{[skin:number]:MapTexture}},game:{[pt:number]:{[skin:number]:MapTexture[],default:MapTexture[]}}}}
+	// */
+	//get _loaded_portals() {
+	//	return MapPortal._portals;
+	//}
 	
 	static async Init() {
-		let _raw = JSON.parse(await $get.pack("/Map/MapHelper.img/portal/editor"));
-		
-		let portals = [];
-		
-		//sort
-		for (let i in this._pts) {
-			portals.push(_raw[i]);
-			delete _raw[i];
-		}
-		for (let i in _raw) {
-			portals.push(_raw[i]);
-			delete _raw[i];
-		}
-		
-		for (let i = 0; i < portals.length; ++i) {
-			let portal = portals[i];
-			portals[i] = new MapTexture(portal);
-		}
-		
-		MapPortal._portals = portals;
+		MapPortal._portals_raw = await $get.data("/Map/MapHelper/portal");
+
+		MapPortal._type_map = Object.keys(MapPortal._portals_raw.editor);
 	}
 }
-MapPortal._portals = [];
-MapPortal._script = [];
+MapPortal._portals_raw = {};
+MapPortal._type_map = {};
+//MapPortal._portals = {};
+MapPortal._script = {};
 
 class MapPortalManager {
 	constructor() {
 		/** @type {MapPortal[]} */
 		this.portals = null;
+
+		this.__display_mode = this.__display_mode;
 	}
 	
 	async load(map_raw_data, mapRenderer) {
@@ -946,9 +1060,9 @@ class MapPortalManager {
 			
 			pt.load();//sync
 			
-			if (pt.enable) {
+			//if (pt.enable) {
 				mapRenderer.controller.createPortal(pt);//inject body
-			}
+			//}
 			
 			portals.push(pt);
 		}
@@ -965,21 +1079,31 @@ class MapPortalManager {
 	 * @param {number} stamp
 	 */
 	update(stamp) {
-		for (let i = 0; i < this.portals.length; ++i) {
-			let portal = this.portals[i];
-			portal.update(stamp);
+		if (this.__display_mode != $gv.m_editor_mode) {
+			this.__display_mode = $gv.m_editor_mode;
+
+			for (let i = 0; i < this.portals.length; ++i) {
+				let portal = this.portals[i];
+				portal._loadTexture();
+				portal.update(stamp);
+			}
+		}
+		else {
+			for (let i = 0; i < this.portals.length; ++i) {
+				let portal = this.portals[i];
+				portal.update(stamp);
+			}
 		}
 	}
 	/**
-	 * @param {Vec2} center
-	 * @param {Rectangle} canva
-	 * @param {bool} display
 	 * @param {IRenderer} renderer
+	 * @param {Vec2} center
+	 * @param {Rectangle} viewRect
 	 */
-	draw(center, canva, display, renderer) {
+	draw(renderer, center, viewRect) {
 		for (let i = 0; i < this.portals.length; ++i) {
 			let portal = this.portals[i];
-			portal.draw(center, canva, display, renderer);
+			portal.draw(renderer, center, viewRect);
 		}
 	}
 }
@@ -1010,22 +1134,26 @@ class MapBackBase extends MapObjectBase {
 class MapBack extends MapBackBase {
 	constructor(_raw) {
 		super(_raw);
+		this.update = this._update_and_preload;
 	}
 
 	load() {
 		let path = ["/Map", "Back", this._texture_base_path].join("/");
 
-		if (this._raw.bS == "") {
-			console.warn("?path: " + path);
-			return;
+		if (this._raw.bS) {
+			const raw = this._texture_raw;
+			if (raw) {
+				this.textures[0] = new MapTexture(this._texture_raw);
+				this.textures[0]._url = path;
+			}
 		}
-
-		this.textures[0] = new MapTexture(this._texture_raw);
-		this.textures[0]._url = "/images" + path;
+		else {
+			console.warn("MapBack path ?: " + path);
+		}
 	}
 	
 	get _texture_base_path() {
-		return [this._raw.bS + ".img", "back", this._raw.no].join("/");
+		return [this._raw.bS, "back", this._raw.no].join("/");
 	}
 
 	/**
@@ -1033,11 +1161,8 @@ class MapBack extends MapBackBase {
 	 * texture; info & data
 	 */
 	get _texture_raw() {
-		try {
+		if (this._raw.bS && this._raw.no) {
 			return map_sprite.Back[this._raw.bS]["back"][this._raw.no];
-		}
-		catch (ex) {
-			debugger;
 		}
 		return null;
 	}
@@ -1049,6 +1174,7 @@ class MapBack extends MapBackBase {
 class MapBackAnimation extends MapBackBase {
 	constructor(_raw) {
 		super(_raw);
+		this.update = this._update_and_preload;
 	}
 
 	/**
@@ -1061,13 +1187,13 @@ class MapBackAnimation extends MapBackBase {
 		let path = ["/Map", "Back", this._texture_base_path, i].join("/");
 
 		let texture = new MapTexture(this._texture_raw[i]);
-		texture._url = "/images" + path;
+		texture._url = path;
 
 		return texture;
 	}
 	
 	get _texture_base_path() {
-		return [this._raw.bS + ".img", "ani", this._raw.no].join("/");
+		return [this._raw.bS, "ani", this._raw.no].join("/");
 	}
 
 	/**
@@ -1096,7 +1222,7 @@ class MapBackSkeletalAnim extends MapBackBase {
 	get _folder() {
 		const ob = this._raw;
 		//["Back"  ][obj.bS]["ani" ][obj.no][0    ][""]
-		return `/Map/Back/${ob.bS}.img/spine/${ob.no}`;
+		return `/Map/Back/${ob.bS}/spine/${ob.no}`;
 	}
 	async load() {
 		if (SSAnim) {
@@ -1126,25 +1252,26 @@ class MapBackSkeletalAnim extends MapBackBase {
 			this.ssanim.update(stamp);
 		}
 	}
+
 	/**
-	 * @param {Vec2} center
-	 * @param {Rectangle} canva
-	 * @param {bool} display
 	 * @param {IRenderer} renderer
+	 * @param {Vec2} center
+	 * @param {Rectangle} viewRect - ?? no use
 	 */
-	draw(center, canva, display, renderer) {
-		if ($gv.m_display_skeletal_anim && display && this.display != false) {
+	draw(renderer, center, viewRect) {
+		if ($gv.m_display_skeletal_anim) {
 			if (this.ssanim) {
 				const x = Math.trunc((-$gv.m_viewRect.x + 0.5) + this.x);
 				const y = Math.trunc((-$gv.m_viewRect.y + 0.5) + this.y);
-				
+
 				renderer.ctx.setTransform(1, 0, 0, -1, x, y);
-				
+
 				this.ssanim.render();
 			}
 		}
 	}
 }
+
 
 export class LifeSpawnPoint {
 	/**
@@ -1152,6 +1279,9 @@ export class LifeSpawnPoint {
 	 * @param {string} spawnId - spawn index
 	 */
 	constructor(raw, spawnId) {
+		/** @type {"m"|"n"} */
+		this.type = null;
+
 		Object.assign(this, raw);
 		
 		this.spawnId = spawnId;
@@ -1196,13 +1326,15 @@ export class LifeSpawnPoint {
 
 /**
  * Mob / NPC controller
+ * SceneLife
  */
-export class MapLifeEntity {
+export class MapLifeEntity extends SceneObject {
 	/**
 	 * @param {LifeSpawnPoint} lifeSpawnPoint
 	 * @param {number} lifeId - life index
 	 */
 	constructor(lifeSpawnPoint, lifeId) {
+		super();
 		let a = {
 			type: "m",
 			id: 8643000,
@@ -1221,7 +1353,7 @@ export class MapLifeEntity {
 		this.renderer = null;
 
 		/** @type {boolean} */
-		this.isDead = false;
+		this.is_dead = false;
 
 		/** @type {LifeSpawnPoint} */
 		this.spawn = lifeSpawnPoint;
@@ -1262,10 +1394,30 @@ export class MapLifeEntity {
 
 		///** @type {number} */
 		//this.rx1 = lifeSpawnPoint.rx1;
+
+		if (window.$io) {
+			/** @type {string} owner player.id */
+			this.$controllerOwner = "chara_1";//window.chara ? window.chara.id : null;//default controller owner.id
+		}
 	}
+
+	//AfterStep
+	//get x() {
+	//	return this._x;
+	//}
+	//set x(x) {
+	//	this._x = x;
+	//}
+	//get y() {
+	//	return this._y;
+	//}
+	//set y(y) {
+	//	this._y = y;
+	//}
+
 	/**
 	 * @param {LifeSpawnPoint} lifeSpawnPoint
-	 * @param {MapController} mapController
+	 * @param {World} mapController
 	 * @param {number} lifeId - life index
 	 */
 	static Create(lifeSpawnPoint, mapController, lifeId) {
@@ -1315,10 +1467,11 @@ export class MapLifeEntity {
 	}
 
 	/**
+	 * create entity, load data
 	 * @param {string} id -  npc or mob id
-	 * @param {MapController} mapController - no use
+	 * @param {World} mapController - no use
 	 */
-	async load(id, mapController) {//rename to create
+	async load(id, mapController) {//??: rename to create
 		if (this.renderer) {
 			await this.renderer.load(id);
 		}
@@ -1328,25 +1481,55 @@ export class MapLifeEntity {
 		}
 	}
 	
-	die(mapController) {
+	_destroy(mapController) {
+		throw new Error("Not implement");
+	}
+
+	/**
+	 * set die animation
+	 * @param {number} type
+	 */
+	die(type) {
+		throw new Error("Not implement");
+		this.is_dead = true;
+	}
+
+	/**
+	 * @virtual
+	 * @returns {boolean}
+	 */
+	isNeedUpdate() {
+		throw new Error("Not implement");
+	}
+
+	/**
+	 * @virtual
+	 * @param {number} stamp
+	 */
+	update(stamp) {
 		throw new Error("Not implement");
 	}
 
 	/**
 	 * @param {number} stamp
 	 */
-	update(stamp) {
+	_update_renderer(stamp) {
 		this.renderer.update(stamp);
 	}
 
 	/**
 	 * @param {IRenderer} renderer
 	 */
-	draw(renderer) {MobRenderer
+	_draw(renderer) {
 		renderer.globalAlpha = Math.max(0, Math.min(this.opacity, 1));
-		this.renderer.draw(renderer, this.x, this.y, this.angle, this.front <= -1);
+		this.renderer.draw(renderer, this.x, this.y, this.angle, this.front < 0);
+	}
+
+	$makeMovePacket() {
 	}
 }
+
+//SceneMob
 class MapMob extends MapLifeEntity {
 	/**
 	 * @param {LifeSpawnPoint} lifeSpawnPoint
@@ -1361,15 +1544,27 @@ class MapMob extends MapLifeEntity {
 		
 		/** @type {{[x:string]: object}} - {[level]: skill} */
 		this.skills = {};
+
+		//TODO: load mob info
+		this.hp = 100000;
+
+		this.update = this._update_renderer;
 	}
 	/**
-	 * @param {string} mob id
-	 * @param {MapController} mapController
+	 * @param {string} id mobId
+	 * @param {World} mapController
 	 */
-	async load(id, mapController) {//rename to create
+	async load(id, mapController) {//??: rename to create
 		await super.load(id);
+
+		this.$physics = mapController.createMob(this);
+		this.$physics._loadAction(this.renderer.actions);
 		
-		await this._load_skill_by_mob_id(id);
+		try {
+			await this._load_skill_by_mob_id(id);
+		}
+		catch (ex) {//not thing
+		}
 
 		// experiment
 		try {
@@ -1381,13 +1576,150 @@ class MapMob extends MapLifeEntity {
 
 				this.invokeSkill(firstSkillInfo.skill, firstSkillInfo.level);
 			}
-
 		}
-		catch (ex) {
-			//not thing
+		catch (ex) {//not thing
 		}
 
-		this.$physics = mapController.createMob(this);
+		delete this.update;//reset
+	}
+
+	/**
+	 * @override
+	 * @param {SceneObject} chara - 被 chara 攻擊
+	 * @param {number} damage - 傷害
+	 */
+	damage(chara, damage) {
+		if (!this.is_dead) {
+			this.hp -= damage;
+
+			console.log(`Mob(${this.$objectid}) 被 ${chara.$objectid} 攻擊，減少 ${damage} HP，剩下 ${this.hp}`);
+			
+			if (this.hp <= 0) {
+				this.die();
+			}
+		}
+	}
+
+	/**
+	 * @override
+	 * if (chara == null) ??
+	 * @param {SceneObject|null} chara - 被 chara 攻擊
+	 * @param {number} moveX - unit is pixel
+	 * @param {number} moveY - unit is pixel
+	 */
+	knockback(chara, moveX, moveY) {
+	}
+
+	/**
+	 * @override
+	 */
+	$makeMovePacket() {
+		if (this.$physics) {
+			const body = this.$physics.body;
+			//const isAwake = body.IsAwake();
+
+			//if (isAwake) {
+				let elem = new MobMoveElem();
+
+				elem.objectid = this.$objectid;
+
+				this.$physics.$setAsOutputData(elem);
+
+				return elem;
+			//}
+		}
+	}
+
+	/**
+	 * @param {MobMoveElem} packet
+	 */
+	$move(elem) {
+		if (this.$physics) {
+			this.$physics.moveTo(elem);
+
+			//??
+			if (!this.is_dead) {
+				this._applyState(this.$physics.state);//?? immediate update
+			}
+			else {
+				this.$physics.stop();
+			}
+		}
+	}
+
+	/**
+	 * @override
+	 * @returns {boolean}
+	 */
+	isNeedUpdate() {
+		const p = this.$physics;
+		return p && p.isNeedUpdate();
+	}
+
+	/**
+	 * @param {PPlayerState} pState
+	 */
+	_applyState(pState) {
+		//move stand jump hit1 die1
+
+		if (pState.jump) {
+			this.renderer.action = "jump";
+		}
+		else if (pState.walk) {
+			this.renderer.action = "move";
+		}
+		else {
+			this.renderer.action = "stand";
+		}
+
+		if (this.$physics) {
+			//if (!this.renderer._raw.info.noFlip) {//??
+				this.front = this.$physics.state.front;
+			//}
+		}
+	}
+
+	/**
+	 * @override
+	 * @param {number} stamp
+	 */
+	update(stamp) {
+		if (window.$io) {
+			if (window.chara && this.$controllerOwner == window.chara.$objectid) {
+				if (!this.is_dead) {
+					this.$physics.control();
+					this._applyState(this.$physics.state);
+				}
+				else {
+					this.$physics.stop();
+				}
+			}
+			else {
+				this.$physics._control_basic_action();
+				this._applyState(this.$physics.state);
+			}
+		}
+		else {
+			if (!this.is_dead) {
+				this.$physics.control();
+				this._applyState(this.$physics.state);
+			}
+			else {
+				this.$physics.stop();
+			}
+		}
+
+		this.renderer.update(stamp);
+	}
+
+	/**
+	 * @override
+	 * @param {IRenderer} renderer
+	 */
+	draw(renderer) {
+		if ($gv.m_display_mob) {
+			this._draw(renderer);
+		}
 	}
 	
 	/* skill need map to action */
@@ -1493,14 +1825,26 @@ class MapMob extends MapLifeEntity {
 		}
 	}
 	
-	die(mapController) {
+	_destroy(mapController) {
 		let lifeSpawnPoint = this.spawn;
-		lifeSpawnPoint.decreaseLife();
+		if (lifeSpawnPoint instanceof LifeSpawnPoint) {
+			lifeSpawnPoint.decreaseLife();
+		}
 		mapController.destroyMob(this);
 		this.renderer = null;
 	}
+
+	/**
+	 * set die animation
+	 * @param {number=1} type
+	 */
+	die(type = 1) {
+		this.renderer.action = "die" + type;
+		this.is_dead = true;
+	}
 }
 
+//SceneNpc
 class MapNpc extends MapLifeEntity {
 	/**
 	 * @param {LifeSpawnPoint} lifeSpawnPoint
@@ -1510,12 +1854,55 @@ class MapNpc extends MapLifeEntity {
 		super(lifeSpawnPoint, lifeId);
 		this.renderer = new NpcRenderer();
 	}
-	
-	die(mapController) {
+
+	/**
+	 * @override
+	 * @param {IRenderer} renderer
+	 */
+	draw(renderer) {
+		if ($gv.m_display_npc) {
+			super.draw(renderer);
+		}
+	}
+
+	_destroy(mapController) {
 		let lifeSpawnPoint = this.spawn;
 		lifeSpawnPoint.decreaseLife();
 		mapController.destroyNpc(this);
 		this.renderer = null;
+	}
+
+	/**
+	 * set die animation
+	 * @param {number} type
+	 */
+	die(type) {
+		//TODO: npc die ??
+		this.is_dead = true;
+	}
+
+	/**
+	 * @override
+	 * @returns {boolean}
+	 */
+	isNeedUpdate() {
+		return false;
+	}
+
+	/**
+	 * @override
+	 * @param {number} stamp
+	 */
+	update(stamp) {
+		this.renderer.update(stamp);
+	}
+
+	/**
+	 * @override
+	 * @param {IRenderer} renderer
+	 */
+	draw(renderer) {
+		this._draw(renderer)
 	}
 }
 
@@ -1523,7 +1910,7 @@ let MapLifeEntityCapacityRate = 1;
 
 class MapLifeManager {
 	/**
-	 * @param {box2d} MapController
+	 * @param {World} mapController
 	 */
 	constructor(mapController) {
 		/** @type {object} */
@@ -1535,19 +1922,34 @@ class MapLifeManager {
 		/** @type {MapMob[]} */
 		this.entities = [];
 
-		/** @type {box2d} */
+		/** @type {World} */
 		this.mapController = mapController;
+
+		///** @type {number} */
+		//this.$tick = 0;
 	}
 
 	/**
-	 * @returns {Promise}
+	 * @async
+	 * @param {{life:{[spawnId:number]:{}}}} mapRawData
+	 * @returns {Promise<undefined[]>}
 	 */
 	load(mapRawData) {
 		let tasks = [];
 		this._raw = mapRawData.life;
 
-		for (let i = 0; i in this._raw; ++i) {
-			const spawnId = i;
+		let keys = Object.keys(this._raw)
+			.map(i => {
+				let n = parseInt(i, 10);
+				if (Number.isSafeInteger(n)) {
+					return n;
+				}
+				console.warn("MapLife.spawnId: " + i);
+				return null;
+			})
+			.filter(i => i != null);
+
+		for (let spawnId of keys) {
 			let d = new LifeSpawnPoint(this._raw[spawnId], spawnId);
 			tasks.push(MapLifeEntity.loadLifeDesc(d));
 			this.spawnPoints.push(d);
@@ -1584,13 +1986,93 @@ class MapLifeManager {
 		for (let i = 0; i < this.entities.length; ++i) {
 			let entity = this.entities[i];
 			if (entity) {
-				entity.update(stamp);
-
-				if (entity.isDead) {
-					this.killMob(entity);
+				if (entity.renderer.action && entity.renderer.action.startsWith("die")) {
+					const act = entity.renderer.actions[entity.renderer.action];
+					if (act && act.isEnd()) {
+						this.destroyLife(entity);
+						continue;
+					}
 				}
+				entity.update(stamp);
 			}
 		}
+
+		if (window.$io && window.chara && window.chara.$objectid) {
+			const ownerId = window.chara.$objectid;
+			const packet = this.$outPacket || {
+				elements: {},
+				controllerOwner: "chara_1",//this.$controllerOwner;//validation owner
+			};
+			const elements = packet.elements;
+			let count = 0;
+	
+			for (let i = 0; i < this.entities.length; ++i) {
+				let entity = this.entities[i];
+
+				if (entity && entity.$controllerOwner == ownerId && entity.isNeedUpdate()) {
+					entity.$need_update = false;//clear
+
+					let elem = entity.$makeMovePacket();
+					if (elem) {
+						elements[entity.$objectid] = elem;
+						count++;
+					}
+				}
+			}
+	
+			if (count) {
+				window.$io.emit("mobMove", packet);
+	
+				this.$outPacket = null;
+			}
+			else {
+				this.$outPacket = packet;
+			}
+		}
+
+	//	if (window.$io && (this.$tick % 3 == 0)) {
+	//		let packet = this.$outPacket || {};//restore if this.$outPacket is empty
+	//		//let count = 0;
+	//		let elements = [];
+	//
+	//		for (let i = 0; i < this.entities.length; ++i) {
+	//			let entity = this.entities[i];
+	//
+	//			if (entity) {
+	//				//let elem = entity.$makeMovePacket();
+	//				//if (elem) {
+	//				//	packet[entity.$objectid] = elem;
+	//				//	count++;
+	//				//}
+	//				if (entity.$physics) {
+	//					if (window.chara && entity.$controllerOwner == window.chara.$objectid) {
+	//						const body = entity.$physics.body;
+	//						const isAwake = body.IsAwake();
+	//
+	//						if (isAwake) {
+	//							const { x, y } = entity.$physics.getPosition();
+	//							elements.push(entity.$objectid, x * $gv.CANVAS_SCALE, y * $gv.CANVAS_SCALE);
+	//						}
+	//					}
+	//				}
+	//			}
+	//		}
+	//
+	//		if (elements.length/*count*/) {
+	//			packet.elements = new Int32Array(elements).buffer;
+	//
+	//			packet.controllerOwner = "chara_1";//this.$controllerOwner;//validation owner
+	//
+	//			window.$io.emit("mobMove", packet);
+	//
+	//			this.$outPacket = null;
+	//		}
+	//		else {
+	//			this.$outPacket = elements;
+	//		}
+	//	}
+	//
+	//	this.$tick++;
 	}
 
 	/**
@@ -1617,49 +2099,56 @@ class MapLifeManager {
 	
 	/**
 	 * directly spawn npc
+	 * @param {string} npcID
+	 * @param {number} x
+	 * @param {number} y
 	 */
 	spawnNpc(npcID, x, y, flip=false, fh=0) {
-		let lifeSpawnPoint = {
+		let lifeSpawnPoint = new LifeSpawnPoint({
 			type: "n",
-			x: x || 0, y: y || 0, cy: y || 0,
+			x: x | 0, y: y | 0, cy: y | 0,
 			id: npcID,
 			fh: fh,
-		};
+			is_dummy: true,
+		});
 		this.spawn(lifeSpawnPoint);
 	}
 	/**
 	 * directly spawn mob
+	 * @param {string} mobID
+	 * @param {number} x
+	 * @param {number} y
 	 */
 	spawnMob(mobID, x, y, flip=false, fh=0) {
-		let lifeSpawnPoint = {
+		let lifeSpawnPoint = new LifeSpawnPoint({
 			type: "m",
-			x: x || 0, y: y || 0, cy: y || 0,
+			x: x | 0, y: y | 0, cy: y | 0,
 			id: mobID,
 			fh: fh,
-		};
+			is_dummy: true,
+		});
 		this.spawn(lifeSpawnPoint);
 	}
 	
-	killLife(entity) {
+	destroyLife(entity) {
 		if (!(entity instanceof MapLifeEntity)) {
 			alert("MapLifeManager.killLife: can't kill non life");
 			console.error("MapLifeManager.killLife: can't kill non life");
 		}
-		entity.die(this.mapController);
+		entity._destroy(this.mapController);
 		delete this.entities[entity.lifeId];
 	}
-	killAll() {
-		this.entities.forEach(a => this.killLife(a))
+	destroyAll() {
+		this.entities.forEach(a => this.destroyLife(a))
 	}
 
 	/**
-	 * @param {Vec2} center
-	 * @param {Rectangle} canva
-	 * @param {bool} display
 	 * @param {IRenderer} renderer
+	 * @param {Vec2} center
+	 * @param {Rectangle} viewRect
 	 * @param {number} whereLayer - where layer index
 	 */
-	draw(center, viewRect, display, renderer, whereLayer) {
+	draw(renderer, center, viewRect, whereLayer) {
 		for (let i = 0; i < this.entities.length; ++i) {
 			let entity = this.entities[i];
 			if (entity && ((entity.z != null && entity.z == whereLayer) || whereLayer == null)) {
@@ -1699,6 +2188,12 @@ export class SceneMap {
 		/** @type {World} */
 		this.controller = new World();
 
+		//Object.defineProperties(this, {
+		//	controller: {
+		//		value: new World(),
+		//	},
+		//});
+
 		/** @type {MapLifeManager} */
 		this.lifeMgr = new MapLifeManager(this.controller);
 		
@@ -1711,6 +2206,9 @@ export class SceneMap {
 		/** @type {Rectangle} */
 		this.mapBound = null;
 
+		/** @type {{[questId:string]: number}} */
+		this.quest = {};
+
 		/** @type {string} */
 		this._url = null;//data url //debug
 
@@ -1720,14 +2218,20 @@ export class SceneMap {
 		/** @type {Promise<any>} */
 		this.$promise = null;
 
-		this.$loading_status = "loading";
+		this.$loading_status = "unload";
+		
+		/** @type {function():void} */
+		this.onload = null;
+		
+		/** @type {(function():void)[]} */
+		this._onload = [];
 	}
 
 	static async _Init() {
 		let $_mapString = null;
 		let $mapString = {};
 
-		$_mapString = JSON.parse(await $get.data("/String/Map.img/"));
+		$_mapString = await $get.data("/String/Map");
 
 		for (let i in $_mapString) {
 			for (let j in $_mapString[i]) {
@@ -1742,9 +2246,23 @@ export class SceneMap {
 	}
 	static Init() {
 		return Promise.all([
-			this._Init(),
+			SceneMap._Init(),
 			MapPortal.Init(),
 		]);
+	}
+
+	/**
+	 * @param {{[questId:string]: number}} quest
+	 */
+	isActivated(quest) {
+		if (quest) {
+			for (let id in quest) {
+				if (this.quest[id] != quest[id]) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 	
 	get $map_sprite() {
@@ -1753,7 +2271,7 @@ export class SceneMap {
 
 	/**
 	 * load map from loaded data
-	 * @param {{[String]:any}} raw
+	 * @param {{back:{[backId:string]:any}}} raw
 	 */
 	async _constructBack(raw) {
 		if (!("back" in raw)) {
@@ -1794,7 +2312,7 @@ export class SceneMap {
 					}
 				}
 				else {
-					console.warn("map.back[" + i + "].bS = " + back._raw.bS);
+					console.warn("MapBack: map.back[" + i + "].bS = " + back._raw.bS);
 				}
 			}
 
@@ -1819,12 +2337,12 @@ export class SceneMap {
 	}
 	/**
 	 * load map from loaded data
-	 * @param {{[String]:any}} raw
+	 * @param {{[layer:number]:{objs:{},tiles:{},info:{}}}} mapRawData
 	 */
-	async _constructLayeredObject(raw) {
+	async _constructLayeredObject(mapRawData) {
 		let loading_task_map = new Map();
 
-		for (let i = 0, layer = raw[i]; !objIsEmpty(layer); i++ , layer = raw[i]) {//layer[1...8]
+		for (let i = 0, layer = mapRawData[i]; !objIsEmpty(layer); i++ , layer = mapRawData[i]) {//layer[1...8]
 			let objs = this.__constructLayeredObject_obj(i, layer, loading_task_map);
 			let tiles = this.__constructLayeredObject_tile(i, layer, loading_task_map);
 
@@ -1880,6 +2398,7 @@ export class SceneMap {
 			}
 		}
 		else if (Object.keys(layer.tile).length) {
+			debugger;
 			console.warn("[" + i + "].tile = " + JSON.stringify(layer.tile));
 		}
 		for (let j = 0, ti = layer.tile[j]; !objIsEmpty(ti); j++ , ti = layer.tile[j]) {
@@ -2014,7 +2533,7 @@ export class SceneMap {
 	}
 	
 	_get_map_data_url(map_id) {
-		return `/Map/Map/Map${map_id.slice(0, 1)}/${map_id}.img/`;
+		return `/Map/Map/Map${map_id.slice(0, 1)}/${map_id}`;
 	}
 
 	/**
@@ -2023,47 +2542,89 @@ export class SceneMap {
 	 * @param {boolean} reload - download
 	 */
 	async load(map_id, reload) {
+		this.$promise = await this._route_load(map_id, reload);
+		delete this.$promise;//loaded
+	}
+	/**
+	 * loading: map data
+	 * @param {string} map_id
+	 * @param {boolean} reload - download
+	 */
+	async _route_load(map_id, reload) {
+		this.$loading_status = "loading";
+		
 		if (!reload && map_id != null && this.map_id == map_id && this._raw != null) {
 			if (this.isLoaded()) {
 				this.unload();
 			}
-			this._load(this._raw);
+			await this._load(this._raw);
 			return;
 		}
 		const url = this._get_map_data_url(map_id);
-
-		let raw = JSON.parse(await $get.data(url));
-		if (!raw) {
-			alert("map not exit");
-			debugger;
-			return;
-		}
-		if (raw.info && raw.info.link) {
-			const url2 = this._get_map_data_url(raw.info.link);
-				
-			raw = JSON.parse(await $get.data(url2));
+		
+		let raw;
+		try {
+			raw = await $get.data(url);
 			if (!raw) {
-				alert("map-link not exit");
+				alert("map not exit");
 				debugger;
-				return;
+				throw new Error("map not exit");
 			}
 		}
-		if (this.isLoaded()) {
-			this.unload();
+		catch (ex) {
+			this.$loading_status = "failed: load";
+			throw ex;
 		}
-		this._url = url;
-		this.map_id = map_id;
 		
-		this._load(raw);
+		try {
+			if (raw.info && raw.info.link) {
+				const url2 = this._get_map_data_url(raw.info.link);
+					
+				raw = await $get.data(url2);
+				if (!raw) {
+					alert("map-link not exit");
+					debugger;
+					return;
+				}
+			}
+		}
+		catch (ex) {
+			this.$loading_status = "failed: link";
+			throw ex;
+		}
+		
+		try {
+			if (this.isLoaded()) {
+				this.unload();
+			}
+		}
+		catch (ex) {
+			console.warn("SceneMap#unload");
+		}
+		
+		try {
+			this._url = url;
+			this.map_id = map_id;
+			
+			await this._load(raw);
+		}
+		catch (ex) {
+			this.$loading_status = "failed: constructor map";
+			throw ex;
+		}
+		
+		delete this.$loading_status;//loaded
 	}
 	/**
 	 * load map from loaded data
-	 * @param {{[String]:any}} raw
+	 * @param {{[prop:string]:{}}} raw
 	 */
-	_load(raw) {
+	async _load(raw) {
 		const map_id = this.map_id;
+		
+		this._raw = raw;
 
-		this.$loading_status = "loading";
+		$gv.allQuest = {};
 		
 		this.controller.stop = true;//begin load
 		
@@ -2093,40 +2654,35 @@ export class SceneMap {
 		
 		this.$load_tasks.push(MapParticle.construct(raw, this));
 
-		this.$promise = Promise.all(this.$load_tasks);
-		this.$promise.then((results) => {
-			const viewRect = this._compute_map_bound();
-			const viewCenter = viewRect.center;
-			
-			$gv.m_viewRect.setCenter(viewCenter.x, viewCenter.y);
-			
-			this.controller._createMapBound(viewRect);
-			
-			this.controller.stop = false;//end load
-			
-			this.$load_tasks = [];
-			this.$promise = null;
-			delete this.$loading_status;
-			console.log("completed scene_map.waitLoaded: [...]");
-		});
+		let load_results = await Promise.all(this.$load_tasks);
 		
-		this._raw = raw;
+		const viewRect = this._compute_map_bound();
+		const viewCenter = viewRect.center;
+		
+		$gv.m_viewRect.setCenter(viewCenter.x, viewCenter.y);
+		
+		this.controller._createMapBound(viewRect);
+		
+		this.controller.stop = false;//end load
+		
+		this.$load_tasks = [];
+		console.log("completed scene_map.waitLoaded: [...]");
 		
 		this._script();
 		
 		if (this.onload) {
 			this.onload.call(this);//history.pushState
 		}
-
-		console.log("completed scene_map.load");
+		
+		console.log("End scene_map.load");
 	}
 	_script() {
 		switch (this.map_id) {
 			case "450004150":
 			case "450004450":
 			case "450004750":
-				this.lifeMgr.spawnMob("8880166", 1000, 47, false, 0);//from /Etc/BossLucid.img/
-				this.lifeMgr.spawnMob("8880140", 1000, 47, false, 0);//from /Etc/BossLucid.img/
+				this.lifeMgr.spawnMob("8880166", 1000, 47, false, 0);//from /Etc/BossLucid
+				this.lifeMgr.spawnMob("8880140", 1000, 47, false, 0);//from /Etc/BossLucid
 				//this.lifeMgr.spawnMob("8880176", 1000, 47, false, 0);
 				//this.lifeMgr.spawnMob("8880141", 1000, 47, false, 0);
 				break;
@@ -2136,10 +2692,10 @@ export class SceneMap {
 		this.unload();
 		this._load(this._raw);
 	}
-
+	
 	unload() {
 		this.$loading_status = "loading";
-
+		
 		for (let i = 0; i < this.background.length; ++i) {
 			this.background[i].unload();
 		}
@@ -2169,30 +2725,51 @@ export class SceneMap {
 		this.backTags = {};
 		
 		this.particleList = null;
-
+		
 		this.controller.unload();
 		this.lifeMgr.unload();
 		this.portalMgr.unload();
+		
+		map_sprite.Back = {};
+		map_sprite.Obj = {};
+		map_sprite.Tile = {};
 	}
 
 	/**
 	 * load map from loaded data
-	 * @param {{[String]:any}} raw
+	 * @param {{info:{bgm:string}}} mapRawData
 	 */
-	getBgmUrl(raw) {
-		let bgmPath = raw.info.bgm;
-		let s = bgmPath.split("/");
-		s[0] += ".img";
-		return s.shift() + "/" + s.join("");
+	_getBgmPath(mapRawData) {
+		let bgmPath = mapRawData.info.bgm;
+		let i = bgmPath.indexOf("/"), path = bgmPath.slice(0, i) + bgmPath.slice(i);
+		//let m = bgmPath.match(/([^\/]+)(\/.*)/), path = [m[1], m[2]].join("/");
+		return ["", "Sound", path].join("/");
 	}
 
 	/**
 	 * load map from loaded data
-	 * @param {{[String]:any}} raw
+	 * @param {{info:{bgm:string}}} mapRawData
 	 */
-	_loadBgm(raw) {
-		this._bgm_url = this.getBgmUrl(raw);
-		document.getElementById("bgm").innerHTML = `<source src="sound/Sound/${this._bgm_url}" type="audio/mpeg">`;
+	_loadBgm(mapRawData) {
+		const elem_bgm = document.getElementById("bgm");
+		if (elem_bgm) {
+			const path = this._getBgmPath(mapRawData);
+			this._bgm_path = path;
+
+			const url = $get.soundMp3Url(path);
+			
+			elem_bgm.innerHTML = `<source src="${url}" type="audio/mpeg">`;
+			
+			if (process.env.NODE_ENV === 'production') {
+				elem_bgm.autoplay = true;
+			}
+			else {
+				elem_bgm.autoplay = false;
+			}
+		}
+		else {
+			console.error(new TypeError("#bgm"));
+		}
 	}
 
 	playBgm() {
@@ -2250,6 +2827,7 @@ export class SceneMap {
 		return ((!this.$load_tasks || !this.$load_tasks.length) && this._raw && !this.$loading_status);
 	}
 
+
 	/**
 	 * @param {number} stamp
 	 */
@@ -2272,7 +2850,38 @@ export class SceneMap {
 			debugger;
 		}
 	}
-
+	
+	/**
+	 * @param {SceneCharacter} chara
+	 */
+	_addChara(chara) {
+		try {
+			let player_spawns = this.portalMgr.portals.filter(a => a.pn == "sp");
+			let spawn = player_spawns[Math.trunc(Math.random() * 100) % player_spawns.length];
+			const $physics = chara.$physics;
+			const x = spawn.x / $gv.CANVAS_SCALE;
+			const y = spawn.y / $gv.CANVAS_SCALE;
+			$physics.setPosition(x, y);
+			$physics.body.SetAwake(true);
+		}
+		catch (ex) {
+			console.error(ex);
+		}
+	}
+	/**
+	 * @param {SceneCharacter} chara
+	 */
+	addChara(chara) {
+		if (this.$promise) {
+			this.$promise.then(() => {
+				this._addChara(chara);
+			});
+		}
+		else {
+			this._addChara(chara);
+		}
+	}
+	
 	/**
 	 * @param {IRenderer} renderer
 	 */
@@ -2301,35 +2910,45 @@ export class SceneMap {
 	 * @param {number} whereLayer - where layer index
 	 */
 	renderLife(renderer, whereLayer) {
+		if (!$gv.m_display_life) {
+			return;
+		}
 		const center = Vec2.empty;
 		const viewRect = $gv.m_viewRect;
 		
-		this.lifeMgr.draw(center, viewRect, true, renderer, whereLayer);
+		this.lifeMgr.draw(renderer, center, viewRect, whereLayer);
 	}
 	
 	/**
 	 * @param {IRenderer} renderer
 	 */
 	renderPortal(renderer) {
-		const display_portal = true;
+		if (!$gv.m_display_portal) {
+			return;
+		}
 		const center = Vec2.empty;
 		const viewRect = $gv.m_viewRect;
 
 		this.portalMgr.update(this.stamp);
-		this.portalMgr.draw(center, viewRect, display_portal, renderer);
+		this.portalMgr.draw(renderer, center, viewRect);
 	}
 
 	/**
 	 * @param {IRenderer} renderer
 	 */
 	renderFrontground(renderer) {
+		if (!$gv.m_display_front) {
+			return;
+		}
 		const center = $gv.m_viewRect.center;
 		const viewRect = $gv.m_viewRect;
 		
 		for (let i = 0; i < this.frontground.length; ++i) {
 			let back = this.frontground[i];
-			back.update(this.stamp);
-			back.draw(center, viewRect, $gv.m_display_front, renderer);
+			if (this.isActivated(back.quest)) {
+				back.update(this.stamp);
+				back.draw(renderer, center, viewRect);
+			}
 		}
 	}
 
@@ -2337,14 +2956,19 @@ export class SceneMap {
 	 * @param {IRenderer} renderer
 	 */
 	renderLayeredObject(renderer, layerIndex) {
+		if (!$gv.m_display_mapobj) {
+			return;
+		}
 		const center = Vec2.empty;
 		const viewRect = $gv.m_viewRect;
 		
 		const objs = this.layeredObject[layerIndex];
 		for (let j = 0; j < objs.length; ++j) {
 			let obj = objs[j];
-			obj.update(this.stamp);
-			obj.draw(center, viewRect, $gv.m_display_mapobj, renderer);
+			if (this.isActivated(obj.quest)) {
+				obj.update(this.stamp);
+				obj.draw(renderer, center, viewRect);
+			}
 		}
 	}
 	
@@ -2352,14 +2976,19 @@ export class SceneMap {
 	 * @param {IRenderer} renderer
 	 */
 	renderLayeredTile(renderer, layerIndex) {
+		if (!$gv.m_display_maptile) {
+			return;
+		}
 		const center = Vec2.empty;
 		const viewRect = $gv.m_viewRect;
 		
 		const tiles = this.layeredTile[layerIndex];
 		for (let j = 0; j < tiles.length; ++j) {
 			let tile = tiles[j];
-			tile.update(this.stamp);
-			tile.draw(center, viewRect, $gv.m_display_maptile, renderer);
+			if (this.isActivated(tile.quest)) {
+				tile.update(this.stamp);
+				tile.draw(renderer, center, viewRect);
+			}
 		}
 	}
 
@@ -2367,13 +2996,18 @@ export class SceneMap {
 	 * @param {IRenderer} renderer
 	 */
 	renderBackground(renderer) {
+		if (!$gv.m_display_back) {
+			return;
+		}
 		const center = $gv.m_viewRect.center;
 		const viewRect = $gv.m_viewRect;
 		
 		for (let i = 0; i < this.background.length; ++i) {
 			let back = this.background[i];
-			back.update(this.stamp);
-			back.draw(center, viewRect, $gv.m_display_back, renderer);
+			if (this.isActivated(back.quest)) {
+				back.update(this.stamp);
+				back.draw(renderer, center, viewRect);
+			}
 		}
 	}
 	
@@ -2381,18 +3015,25 @@ export class SceneMap {
 	 * @param {IRenderer} renderer
 	 */
 	renderParticle(renderer) {
+		if (!$gv.m_display_particle_system) {
+			return;
+		}
 		//const center = Vec2.empty;
 		const center = $gv.m_viewRect.center;
 		const viewRect = $gv.m_viewRect;
 		
 		for (let i = 0; i < this.particleList.length; ++i) {
 			let particle = this.particleList[i];
-			particle.update(this.stamp);
-			particle.draw(center, viewRect, true, renderer);
+			if (this.isActivated(particle.quest)) {
+				particle.update(this.stamp);
+				particle.draw(renderer, center, viewRect);
+			}
 		}
 	}
 }
-AddInitTask(SceneMap.Init());
+AddInitTask(SceneMap.Init);
+
+window.$SceneMap = SceneMap;
 
 ///////////////////////////////////////////////////////////////////////////////
 //

@@ -287,6 +287,12 @@ __pycache__/
 *.odx.cs
 *.xsd.cs
 
+
+*.vshost.exe
+*.vshost.exe.config
+*.vshost.exe.manifest
+
+
 /Tools/EquipList/libwz.net.dll
 /Tools/EquipList/EquipList.exe
 
@@ -295,25 +301,34 @@ __pycache__/
 
 /test.js
 
-/public/*.bundle.js
+/public/index.js
+/public/index.js.map
+/public/demo.js
+/public/demo.js.map
+
 /public/log.html
 
 /public/_data
 /public/data
 
 /public/equip
+/public/equip.json
 /public/equips
 /public/_equips
 
-/public/images/smap.img
 /public/images/Character
 /public/images/Effect
-/public/images/Map
-/public/images/Mob
-/public/images/NPC
-/public/images/UI
-/public/images/Skill
+/public/images/Etc
 /public/images/Item
+/public/images/Map*
+/public/images/Mob*
+/public/images/Morph
+/public/images/NPC
+/public/images/Reactor
+/public/images/Skill
+/public/images/UI
 
 /public/pack
-/public/sound/Sound
+/public/sound/Sound*
+/public/ls
+/.eslintrc

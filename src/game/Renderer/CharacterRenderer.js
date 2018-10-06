@@ -1,163 +1,21 @@
 ﻿
+import { CharacterRenderConfig, ItemCategoryInfo, ResourceManager } from '../../../public/javascripts/resource.js';
 import { AddInitTask } from "../../init.js";
-
-import { ItemCategoryInfo, ResourceManager, CharacterRenderConfig } from '../../../public/resource.js';
-
-import { Vec2, Rectangle } from '../math.js';
-import { IGraph, IRenderer, ImageFilter } from '../IRenderer.js';
-import { engine, Graph } from '../Engine.js';
-
-import { SpriteBase, Sprite } from '../Sprite.js';
 import { Animation } from "../Animation";
-
+import { engine } from '../Engine.js';
+import { IRenderer, ImageFilter } from '../IRenderer.js';
+import { Sprite, SpriteBase } from '../Sprite.js';
+import { Rectangle, Vec2 } from '../math.js';
 import { ActionAnimation } from './CharacterActionAnimation.js';
-import { SkillAnimation } from '../Skill.js';
 
 
 let zMap = {};
 let sMap = {};
 
-export class ChatBalloon {
-	constructor() {
-		this._raw = null;
-	}
-
-	/**
-	 * @param {any} style
-	 */
-	async load(style) {
-		const _d_path = [this.constructor._base_path, style].join("/");
-		const _i_path = "/images" + _d_path;
-
-		this._raw = JSON.parse(await $get.data(_d_path));
-
-		this.nw = new Sprite(this._raw.nw);
-		this.nw._url = _i_path + "/nw";
-
-		this.n = new Sprite(this._raw.n);
-		this.n._url = _i_path + "/n";
-
-		this.ne = new Sprite(this._raw.ne);
-		this.ne._url = _i_path + "/ne";
-
-		this.w = new Sprite(this._raw.w);
-		this.w._url = _i_path + "/w";
-
-		this.c = new Sprite(this._raw.c);
-		this.c._url = _i_path + "/c";
-
-		this.e = new Sprite(this._raw.e);
-		this.e._url = _i_path + "/e";
-
-		this.sw = new Sprite(this._raw.sw);
-		this.sw._url = _i_path + "/sw";
-
-		this.s = new Sprite(this._raw.s);
-		this.s._url = _i_path + "/s";
-
-		this.se = new Sprite(this._raw.se);
-		this.se._url = _i_path + "/se";
-
-		this.arrow = new Sprite(this._raw.arrow);
-		this.arrow._url = _i_path + "/arrow";
-
-		//this._pat_c = ctx.createPattern(this.c, "repeat");
-
-		ChatBalloon.cache[style] = this;
-	}
-
-	/*
-	1 12345 12345 1 : 5
-	2 12345 12345 12345
-	3 12345 12345 12345
-	4 12345 12345 12345
-	5 12345 12345 12345
-	6 xxx12 34512 34
-	 */
-
-	/**
-	 * @param {IRenderer} renderer
-	 * @param {string} text - length = chat.value.length + " : ".length + name.length = 70 + 3 + name.length
-	 * @param {number} x - chat balloon arrow bottom pos.x
-	 * @param {number} y - chat balloon arrow bottom pos.y
-	 */
-	draw(renderer, text, x, y) {
-		let lines = [];
-		for (let i = 0; i < text.length; i += 12) {
-			let line = text.slice(i, i + 12);
-			lines.push(line);
-		}
-		if (!lines.length) {
-			return;
-		}
-
-		const LINE_HEIGHT = this.c.height;// = fontSize(12) + PADDING_TOP(2)
-		const ctx = renderer.ctx;
-		const PADDING_LEFT = 0, PADDING_TOP = 0, PADDING_RIGHT = 0, PADDING_BOTTOM = 0;
-
-		ctx.font = "12px 微軟正黑體";//新細明體
-		ctx.textAlign = "center";
-		ctx.textBaseline = "top";//alphabetic
-
-		const _tw = lines.map(line => ctx.measureText(line).width + PADDING_LEFT + PADDING_RIGHT).sort((a, b) => b - a)[0];
-		const tw = Math.ceil(_tw / this.n.width) * this.n.width;
-		const hw = tw / 2;
-		const th = lines.length * LINE_HEIGHT + PADDING_TOP + PADDING_BOTTOM;
-
-		x = Math.trunc((x - hw));
-		y = Math.trunc((y - th) - this.arrow.height);
-
-		this.nw.draw2(x, y);
-		this.n._drawPattern(x, y, tw, this.n.height);
-		this.ne.draw2(x + tw, y);
-
-		const xw = this.w.width - this.w.x;
-
-		this.w._drawPattern(x + xw, y, this.w.width, th);
-		this.c._drawPattern(x + xw, y, tw, th);
-		this.e._drawPattern(x + xw + tw, y, this.e.width, th);
-
-		const arrow_hw = this.arrow.width / 2;
-		const hw_arrow_hw = hw - arrow_hw;
-
-		this.sw.draw2(x, y + th);
-		this.s._drawPattern(x, y + th, hw_arrow_hw, this.s.height);
-		this.s._drawPattern(x + hw + arrow_hw, y + th, hw_arrow_hw, this.s.height);
-		this.se.draw2(x + tw, y + th);
-
-		this.arrow.draw2i(x - arrow_hw + hw, y + th);
-		
-		for (let i = 0, cy = y; i < lines.length; ++i, cy += LINE_HEIGHT) {
-			let line = lines[i];
-
-			//if (this.constructor.DEBUG) {
-			//	ctx.beginPath();
-			//	ctx.strokeStyle = "red";
-			//	ctx.strokeRect(x + PADDING_LEFT, cy + PADDING_TOP, tw, LINE_HEIGHT);
-			//}
-		
-			ctx.fillStyle = "black";
-			ctx.fillText(line, x + hw + PADDING_LEFT, cy + PADDING_TOP);
-		}
-	}
-
-	static get _base_path() {
-		return "/UI/ChatBalloon.img";
-	}
-
-	//static get DEBUG() {
-	//	return false;
-	//}
-}
-
-/** @type {{[style:number]:ChatBalloon}} */
-ChatBalloon.cache = {};
-
-window.$images_ChatBalloon = ChatBalloon.cache;
 
 /**
  * 00026623.blink[1].brow has bug
- * 'Weapon/01702694.img' is Longcoat(islot)
+ * 'Weapon/01702694' is Longcoat(islot)
  * how to use cash-weapon (ex: 01702504|0152)
  */
 
@@ -181,15 +39,28 @@ class FragmentTexture extends SpriteBase {
 		}
 
 		/**
-		 * if this.relative == null then hide
+		 * if this.relative == null then remove this
+		 * @type {Vec2}
 		 */
 		this.relative = new Vec2(0, 0);
-
-		/** @type {function(CharacterAnimationBase):Vec2} */
+		
 		this.calcRelative = this._calcRelative;//this._getRelativeFunction();//this.__old_calcRelative;//
 
 		this.filter = new ImageFilter();
 		this.opacity = 1;
+
+		/** @type {boolean} */
+		this.visible = true;
+
+
+		/** @type {string} - extra property. */
+		this._slot = null;
+
+		/** @type {string} - extra property. 在哪個部位 */
+		this._place = null;
+
+		/** @type {string} - extra property: _slot itemId, _place, _raw.z z */
+		this.classList = null;
 	}
 
 	/**
@@ -200,7 +71,7 @@ class FragmentTexture extends SpriteBase {
 		return zMap[this._raw.z] || 1;
 	}
 	set z(not_value) {
-		console.warn("Not implement");
+		console.error("Not implement");
 	}
 
 	/**
@@ -213,7 +84,7 @@ class FragmentTexture extends SpriteBase {
 	}
 	set order(not_value) {
 		debugger;
-		console.warn(new Error("Not implement").stack);
+		console.error(new TypeError("Not implement"));
 	}
 
 	/** @returns {Vec2} */
@@ -251,22 +122,24 @@ class FragmentTexture extends SpriteBase {
 	isAnchor_EarOverHead() { return !!this._raw.map.earOverHead; }
 
 	/**
-	 * @param {FragmentTexture} that
-	 * @param {FragmentTexture} base
+	 * @param {FragmentTexture} that - this
+	 * @param {FragmentTexture} base - parent
 	 * @param {string} anchor - anchor name
 	 * @returns {Vec2}
 	 */
 	_anchor(that, base, anchor) {
-		return base[anchor].sub(that[anchor]).add(base.origin.sub(that.origin));
+		return base[anchor].minus(that[anchor]).plus(base.origin.minus(that.origin));
 	}
 
 	/**
 	 * @param {CharacterAnimationBase} chara
+	 * @param {FragmentTexture} body
+	 * @param {FragmentTexture} [head]
 	 * @returns {Vec2}
 	 */
-	_calcRelative(chara) {
+	_calcRelative(chara, body, head) {
 		this.calcRelative = this._getRelativeFunction(chara);
-		return this.calcRelative(chara);
+		return this.calcRelative(chara, body, head);
 	}
 	/**
 	 * @param {CharacterAnimationBase} chara
@@ -300,71 +173,83 @@ class FragmentTexture extends SpriteBase {
 	}
 	/**
 	 * @param {CharacterAnimationBase} chara
+	 * @param {FragmentTexture} body
+	 * @param {FragmentTexture} [head]
 	 * @returns {Vec2}
 	 */
-	_calcRelativeEmpty(chara) {
+	_calcRelativeEmpty(chara, body, head) {
 		return Vec2.empty;
 	}
 	/**
+	 * @param {CharacterAnimationBase} chara
+	 * @param {FragmentTexture} body
+	 * @param {FragmentTexture} [head]
 	 * @returns {Vec2}
 	 */
-	_getOrigin() {
+	_getOrigin(chara, body, head) {
 		return this.origin;
 	}
 	/**
 	 * neck on the navel
 	 * @param {CharacterAnimationBase} chara
+	 * @param {FragmentTexture} body
+	 * @param {FragmentTexture} [head]
 	 * @returns {Vec2}
 	 */
-	_calcRelative_neck(chara) {
-		const body = chara.slots.body.fragments.body.getTexture(chara);
-		return this._anchor(this, body, "neck").sub(body.origin);
+	_calcRelative_neck(chara, body, head) {
+		return this._anchor(this, body, "neck").minus(body.origin);
 	}
 	/**
 	 * brow on the head & head on the neck & neck on the navel
 	 * @param {CharacterAnimationBase} chara
+	 * @param {FragmentTexture} body
+	 * @param {FragmentTexture} [head]
 	 * @returns {Vec2}
 	 */
-	_calcRelative_brow(chara) {
-		const body = chara.slots.body.fragments.body.getTexture(chara);
-		const head = chara.slots.head.fragments.head.getTexture(chara);
-		return this._anchor(this, head, "brow").add(this._anchor(head, body, "neck")).sub(body.origin);//anchor_brow+(-7,-33)
+	_calcRelative_brow(chara, body, head) {
+		return this._anchor(this, head, "brow").plus(this._anchor(head, body, "neck")).minus(body.origin);//anchor_brow+(-7,-33)
 	}
 	/**
 	 * this is origin point, no anchor
 	 * @param {CharacterAnimationBase} chara
+	 * @param {FragmentTexture} body
+	 * @param {FragmentTexture} [head]
 	 * @returns {Vec2}
 	 */
-	_calcRelative_navel(chara) {
-		const body = chara.slots.body.fragments.body.getTexture(chara);
-		return body.navel.sub(this.navel, this.origin);
+	_calcRelative_navel(chara, body, head) {
+		return body.navel.minus(this.navel).minus(this.origin);
 	}
 	/**
 	 * @param {CharacterAnimationBase} chara
+	 * @param {FragmentTexture} body
+	 * @param {FragmentTexture} [head]
 	 * @returns {Vec2}
 	 */
-	_calcRelative_hand(chara) {
-		const body = chara.slots.body.fragments.body.getTexture(chara);
+	_calcRelative_hand(chara, body, head) {
 		const hand = chara.slots.body.fragments.arm.getTexture(chara);
 		if (hand == null) {
-			return Vec2.empty.sub(this.hand).sub(this.origin).sub(body.origin);
+			return Vec2.empty.minus(this.hand).minus(this.origin).minus(body.origin);
 			return null;
 		}
-		return this._anchor(this, hand, "hand").sub(this._anchor(body, hand, "navel")).sub(body.origin);
+		return this._anchor(this, hand, "hand").minus(this._anchor(body, hand, "navel")).minus(body.origin);
 	}
 	/**
 	 * @param {CharacterAnimationBase} chara
+	 * @param {FragmentTexture} body
+	 * @param {FragmentTexture} [head]
 	 * @returns {Vec2}
 	 */
-	_calcRelative_handMove(chara) {
-		return Vec2.empty.sub(this.origin).sub(this.handMove);
+	_calcRelative_handMove(chara, body, head) {
+		return Vec2.empty.minus(this.origin).minus(this.handMove);
 	}
 	/**
 	 * @param {CharacterAnimationBase} chara
+	 * @param {FragmentTexture} body
+	 * @param {FragmentTexture} [head]
 	 * @returns {Vec2}
 	 */
-	_calcRelative_handMove_lHand(chara) {
-		return Vec2.empty.sub(this.origin);
+	_calcRelative_handMove_lHand(chara, body, head) {
+		return Vec2.empty.minus(this.origin);
 	}
 	
 
@@ -372,21 +257,32 @@ class FragmentTexture extends SpriteBase {
 	 * @param {CharacterAnimationBase} chara
 	 */
 	update(chara) {
-		this.relative = this.calcRelative(chara);
+		if (chara.slots.body && chara.slots.head) {
+			const body = chara.slots.body.fragments.body.getTexture(chara);
+			const head = chara.slots.head.fragments.head.getTexture(chara);
+			if (body && head) {
+				this.relative = this.calcRelative(chara, body, head);
+
+				const tamingMob = chara.slots.tamingMob;
+				if (tamingMob) {
+					this.relative = tamingMob.adj_pos(this.relative, body, chara);
+				}
+			}
+		}
 	}
 
 	/**
 	 * @param {IRenderer} renderer
-	 * @param {Character} chara
+	 * @param {CharacterAnimationBase} chara
 	 */
 	render(renderer, chara) {
-		if (!this.relative) {
+		if (!(this.relative && this.visible)) {
 			return;
 		}
 		const x = this.relative.x;
 		const y = this.relative.y;
 
-		renderer.globalAlpha = this.opacity || 1;
+		renderer.globalAlpha = this.opacity;
 		if (this.filter.isEmpty) {
 			renderer.drawGraph2(this, x, y);
 		}
@@ -395,6 +291,16 @@ class FragmentTexture extends SpriteBase {
 			renderer.drawGraph2(this, x, y);
 			renderer.ctx.filter = "none";
 		}
+	}
+}
+
+class BodyFragmentTexture extends FragmentTexture {
+	/**
+	 * @param {CharacterAnimationBase} chara
+	 */
+	update(chara) {
+		super.update(chara);
+		this.visible = !chara.hideBody;
 	}
 }
 
@@ -413,18 +319,30 @@ class HairFragmentTexture extends FragmentTexture {
 	 * @param {CharacterAnimationBase} chara
 	 */
 	update(chara) {
-		this.relative = this.calcRelative(chara);
-		if (this.graph2) {
-			this.graph2.relative = this.relative;
-		}
-		if (this.graph3) {
-			this.graph3.relative = this.relative;
+		if (chara.slots.body && chara.slots.head) {
+			const body = chara.slots.body.fragments.body.getTexture(chara);
+			const head = chara.slots.head.fragments.head.getTexture(chara);
+			if (body && head) {
+				this.relative = this.calcRelative(chara, body, head);
+
+				const tamingMob = chara.slots.tamingMob;
+				if (tamingMob) {
+					this.relative = tamingMob.adj_pos(this.relative, body, chara);
+				}
+
+				if (this.graph2) {
+					this.graph2.relative = this.relative;
+				}
+				if (this.graph3) {
+					this.graph3.relative = this.relative;
+				}
+			}
 		}
 	}
 
 	/**
 	 * @param {IRenderer} renderer
-	 * @param {Character} chara
+	 * @param {CharacterAnimationBase} chara
 	 */
 	render(renderer, chara) {
 		if (!this.relative) {
@@ -464,9 +382,12 @@ class HairFragmentTexture extends FragmentTexture {
 class ItemEffectAnimation extends Animation {
 	constructor(raw, url) {
 		super(raw, url);
+		
+		Object.defineProperty(this, "_raw", {
+			value: raw,
+		});
 
-		this._raw = raw;
-		this._url = this._url;
+		//this._url = this._url;
 
 		this.__getAttr("z", -1);
 		this.__getAttr("pos", 1);
@@ -485,29 +406,27 @@ class ItemEffectAnimation extends Animation {
 	/**
 	 * @param {IRenderer} renderer
 	 * @param {boolean} actionExceptRotation
+	 * @param {number} angle
 	 * @param {boolean} flip
 	 */
-	render(renderer, actionExceptRotation, chara) {
-		const texture = this.textures[this.frame];
-		if (texture && texture.isLoaded()) {
-			if (actionExceptRotation) {
-				this.draw(renderer, 0, 0, 0, chara.front > 0);
-			}
-			else {
-				const oy = -texture.height * 0.25;
-				this.draw(renderer, 0, oy, chara.angle, flip);
-			}
+	render(renderer, actionExceptRotation, angle, flip) {
+		if (actionExceptRotation) {
+			this.draw(renderer, 0, 0, -angle, flip);
+		}
+		else {
+			const oy = -this.texture.height * 0.25;
+			this.draw(renderer, 0, oy, 0, flip);
 		}
 	}
 }
 
-//	/data/Effect/ItemEff.img/1102918
+//	/data/Effect/ItemEff/1102918
 class ItemEffect {
 	constructor() {
 		this._url = null;
 		this._raw = null;
 
-		/** @type {Object<string, ItemEffectAnimation>} */
+		/** @type {{[animationName:string]:ItemEffectAnimation}} */
 		this.animation = {};
 
 		this.action = null;
@@ -518,23 +437,27 @@ class ItemEffect {
 		this.z = -2;
 		this.action = 1;
 		this.actionExceptRotation = 0;
+		
+		this.enable = true;
 	}
 
 	static async Init() {
-		let itemEffectList = {};
-		let raw = JSON.parse(await $get("/ls/Effect/ItemEff.img/"));
+		try {
+			/** @type {Set<string>} */
+			let itemEffectList = ItemEffect._list;
 
-		if (!raw) {
-			console.error("No item effect");
-			alert("No item effect");
+			/** @type {string[]} */
+			let raw = await $get.list("/Effect/ItemEff");
+
+			itemEffectList.clear();
+
+			raw.forEach(id => {
+				itemEffectList.add(parseInt(id, 10));
+			});
+		}
+		catch (ex) {
 			return false;
 		}
-
-		raw.forEach(i => {
-			itemEffectList[i] = 1;
-		});
-
-		ItemEffect._list = itemEffectList;
 	}
 
 	/**
@@ -543,9 +466,15 @@ class ItemEffect {
 	 * @returns {Promise<ItemEffect>}
 	 */
 	static async load(equipID) {
-		let eff = new ItemEffect();
-		await eff.load(equipID);
-		return eff;
+		const id = Number(equipID);
+
+		if (ItemEffect._list.has(id)) {
+			let eff = new ItemEffect();
+			await eff.load(equipID);
+			return eff;
+		}
+
+		return null;
 	}
 
 	/**
@@ -555,18 +484,18 @@ class ItemEffect {
 	 */
 	async load(equipID) {
 		const id = Number(equipID);
-		const url = `/Effect/ItemEff.img/${id}/effect`;
+		const url = `/Effect/ItemEff/${id}/effect`;
+		let raw;
 
-		if (ItemEffect._list && !ItemEffect._list[id]) {
-			//if (!confirm("Try load: " + url)) {
-			//	return;
-			//}
-			return null;
+		try {
+			raw = await $get.data(url);
+		}
+		catch (ex) {
+			throw ex;
 		}
 
-		let raw = JSON.parse(await $get.data(url));
 		if (raw) {
-			return await this._load(equipID, url, raw);
+			return this._load(equipID, url, raw);
 		}
 
 		return null;
@@ -595,7 +524,7 @@ class ItemEffect {
 	 */
 	render(renderer, chara) {
 		if (this.animation && this.animation[this.action]) {
-			this.animation[this.action].render(renderer, this.actionExceptRotation, chara.front > 0);
+			this.animation[this.action].render(renderer, this.actionExceptRotation, chara.angle, chara.front > 0);
 		}
 	}
 
@@ -603,14 +532,16 @@ class ItemEffect {
 	 * @param {string} equipID
 	 * @param {object} raw_data
 	 */
-	async _load(equipID, url, raw) {
+	_load(equipID, url, raw) {
 		this.id = equipID;
 
 		if (!raw) {
 			debugger;
 		}
-		this._url = url;
-		this._raw = raw;
+		//this._url = url;
+		Object.defineProperty(this, "_raw", {
+			value: raw,
+		});
 
 		this.__construct();
 	}
@@ -635,39 +566,67 @@ class ItemEffect {
 		}
 	}
 }
+/** @type {Set<string>} */
+ItemEffect._list = new Set();
 
 class CharacterFragmentBase {
+	/**
+	 * @param {{[action:string]: FragmentTexture[]}} textures
+	 */
 	constructor(textures) {
+		/** @type {{[action:string]: FragmentTexture[]}} - textures[action:string][frame:number] */
 		this.textures = textures;
-		//this.opacity = 1;
 	}
 
 	/**
-	 * @param {Character} chara
-	 * @param {string} place
+	 * @virtual
+	 * @param {CharacterAnimationBase} chara
 	 * @returns {FragmentTexture}
 	 */
-	getTexture(chara, place) {
+	getTexture(chara) {
+		throw new Error("Not implement");
+	}
+
+	/**
+	 * @virtual
+	 * @param {CharacterAnimationBase} chara
+	 * @param {number} frame
+	 * @returns {FragmentTexture}
+	 */
+	getFrameTexture(chara, frame) {
+		throw new Error("Not implement");
+	}
+
+	/**
+	 * @virtual
+	 * @param {CharacterAnimationBase} chara
+	 * @returns {number}
+	 */
+	getFrameCount(chara) {
 		throw new Error("Not implement");
 	}
 }
 
+/**
+ * @final 
+ */
 class CharacterBodyFragment extends CharacterFragmentBase {
 	constructor(textures) {
 		super(textures);
 	}
 
 	/**
-	 * @param {Character} chara
+	 * @override
+	 * @param {CharacterAnimationBase} chara
 	 * @returns {FragmentTexture}
 	 */
 	getTexture(chara) {
 		return this.getFrameTexture(chara, chara.action_frame);
 	}
-
-
+	
 	/**
-	 * @param {Character} chara
+	 * @override
+	 * @param {CharacterAnimationBase} chara
 	 * @param {number} frame
 	 * @returns {FragmentTexture}
 	 */
@@ -675,24 +634,34 @@ class CharacterBodyFragment extends CharacterFragmentBase {
 		if (!(chara.action in this.textures)) {
 			return null;
 		}
-		//if (this.textures.is_show) {
-			let ft = this.textures[chara.action][frame];
-			if (ft) {
-				//ft.opacity = this.opacity;
-				return ft;
-			}
-		//}
-		return null;
+		let ft = this.textures[chara.action][frame];//if frame not exist then return undefined
+		return ft;
+	}
+
+	/**
+	 * @override
+	 * @param {CharacterAnimationBase} chara
+	 * @returns {number}
+	 */
+	getFrameCount(chara) {
+		if (this.textures[chara.action]) {
+			return this.textures[chara.action].length;
+		}
+		return 0;
 	}
 }
 
+/**
+ * @final 
+ */
 class CharacterFaceFragment extends CharacterFragmentBase {
 	constructor(textures) {
 		super(textures);
 	}
 
 	/**
-	 * @param {Character} chara
+	 * @override
+	 * @param {CharacterAnimationBase} chara
 	 * @returns {FragmentTexture}
 	 */
 	getTexture(chara) {
@@ -700,7 +669,8 @@ class CharacterFaceFragment extends CharacterFragmentBase {
 	}
 
 	/**
-	 * @param {Character} chara
+	 * @override
+	 * @param {CharacterAnimationBase} chara
 	 * @param {number} frame
 	 * @returns {FragmentTexture}
 	 */
@@ -708,18 +678,70 @@ class CharacterFaceFragment extends CharacterFragmentBase {
 		if (!(chara.emotion in this.textures)) {
 			return null;
 		}
-		//if (this.textures.is_show) {
-			let ft = this.textures[chara.emotion][frame];
-			//ft.opacity = this.opacity;
-			return ft;
-		//}
-		return null;
+		let ft = this.textures[chara.emotion][frame];
+		return ft;
+	}
+
+	/**
+	 * @override
+	 * @param {CharacterAnimationBase} chara
+	 * @returns {number}
+	 */
+	getFrameCount(chara) {
+		if (this.textures[chara.emotion]) {
+			return this.textures[chara.emotion].length;
+		}
+		return 0;
+	}
+}
+
+/**
+ * @final 
+ */
+class CharacterTamingMobFragment extends CharacterFragmentBase {
+	constructor(textures) {
+		super(textures);
+	}
+
+	/**
+	 * @override
+	 * @param {CharacterAnimationBase} chara
+	 * @returns {FragmentTexture}
+	 */
+	getTexture(chara) {
+		return this.getFrameTexture(chara, chara.actani.actionFrame);
+	}
+
+	/**
+	 * @override
+	 * @param {CharacterAnimationBase} chara
+	 * @param {number} frame - not sync chara._frame
+	 * @returns {FragmentTexture}
+	 */
+	getFrameTexture(chara, frame) {
+		if (!(chara._ride_action in this.textures)) {
+			return null;
+		}
+		let ft = this.textures[chara._ride_action][frame];//if frame not exist then return undefined
+		return ft;
+	}
+
+	/**
+	 * @override
+	 * @param {CharacterAnimationBase} chara
+	 * @returns {number}
+	 */
+	getFrameCount(chara) {
+		if (this.textures[chara._ride_action]) {
+			return this.textures[chara._ride_action].length;
+		}
+		return 0;
 	}
 }
 
 class EquipImageFilter {
 	/**
-	 * @param {ICharacterEquip} equip
+	 * @param {CharacterAppearanceBase} equip
 	 */
 	constructor(equip) {
 		this.equip = equip;
@@ -843,45 +865,69 @@ class EquipImageFilter {
 	toJSON() {
 		return {
 			hue: this.hue,
-			sat: this.sat,
-			bri: this.bri,
-			contrast: this.contrast,
+			saturation: strNum(this.sat),
+			brightness: strNum(this.bri),
+			contrast: strNum(this.contrast),
 		};
+		function strNum(val) {
+			return (val / 100).toFixed(1);
+		}
+	}
+
+	/**
+	 * @param {{hue: number, saturation: number, brightness: number, contrast: number}} data
+	 */
+	parse(data) {
+		this.hue = Number(data.hue);
+		this.sat = Number(data.saturation);
+		this.bri = Number(data.brightness);
+		this.contrast = Number(data.contrast);
 	}
 }
 
-class ICharacterEquip {
+/**
+ * @interface
+ */
+class ICharacterAppearanceBase {
 	constructor() {
 	}
 
-	get _animation_type() {
-		throw new Error("Not Implement");
-	}
-
+	/**
+	 * @virtual
+	 */
 	isLoaded() {
 		return false;
 	}
 
+	/**
+	 * @virtual
+	 */
 	_unload() {
 	}
 
 	/**
+	 * @virtual
 	 * @param {CharacterAnimationBase} chara
 	 * @returns {number}
 	 */
 	getFrameCount(chara) {
-		return 0;
+		throw new Error("Not implement");
 	}
 
 	/**
-	 * @param {Character} chara
+	 * @virtual
+	 * @param {CharacterAnimationBase} chara
 	 * @returns {number}
 	 */
 	getDelay(chara) {
-		return 0;
+		throw new Error("Not implement");
 	}
 
+	/**
+	 * @virtual
+	 */
 	toJSON() {
+		throw new Error("Not implement");
 		return {
 			id: -1,//invalid ID
 		};
@@ -891,7 +937,7 @@ class ICharacterEquip {
 /**
  * ??
  */
-class _CharacterEquipSlotLink extends ICharacterEquip {
+class _CharacterAppearanceBaseSlotLink extends ICharacterAppearanceBase {
 	constructor(slot_link) {
 		super();
 		this.slot_link = slot_link;//??
@@ -904,21 +950,23 @@ class _CharacterEquipSlotLink extends ICharacterEquip {
 	}
 }
 
-class CharacterEquipBase extends ICharacterEquip {
+/**
+ * character loader
+ */
+class CharacterAppearanceBase extends ICharacterAppearanceBase {
 	constructor() {
 		super();
 			
 		this._raw = null;
 
 		/** @type {string} */
-		this._url = null;
+		//this._url = null;
 			
 		/** @type {ItemEffect} */
 		this.effect = null;
 
 		/**
-		 * this.fragments[place][action][frame]
-		 * @type {{[place:string]:{[action:string]:FragmentTexture[]}}}
+		 * @type {{[place:string]:CharacterFragmentBase}}
 		 */
 		this.fragments = null;
 
@@ -942,18 +990,51 @@ class CharacterEquipBase extends ICharacterEquip {
 		this.filter = new EquipImageFilter(this);
 	}
 
-	toJSON() {
-		return {
-			id: this.id,
-			filter: this.filter.toJSON(),
+	/**
+	 * @param {string} [animationName] - action animation
+	 */
+	toJSON(animationName) {
+		let region, version;
+		if (this._raw.info.__v) {
+			const m = this._raw.info.__v.toUpperCase().match(/([A-Z]*)([0-9]*)/);
+			region = m[1] == "TWMS" ? "TMS" : m[1];
+			version = "latest";//m[2];
+		}
+		else {
+			region = "TMS";
+			version = "latest";
+		}
+		const filter = this.filter;
+
+		let obj = {
+			itemId: Number(this.id),
+			region: region,
+			version: version,
+			hue: filter.hue,
+			saturation: strNum(filter.sat),
+			brightness: strNum(filter.bri),
+			contrast: strNum(filter.contrast),
+			alpha: Number(this.opacity.toFixed(1)),
 		};
+		if (animationName) {
+			obj.animationName = animationName;
+		}
+		return obj;
+
+		function strNum(val) {
+			return (val / 100).toFixed(1);
+		}
+	}
+
+	parse(data) {
+		throw new Error();
 	}
 
 	isLoaded() {
 		return this.fragments != null;
 	}
 
-	/** @type {function(CharacterEquipBase):void} */
+	/** @type {function(CharacterAppearanceBase):void} */
 	get _onload() {
 		return this.__onload;
 	}
@@ -972,47 +1053,33 @@ class CharacterEquipBase extends ICharacterEquip {
 	 * @returns {Promise<boolean>} - true if item exist
 	 */
 	async load(url, id, cateInfo, use_category) {
-		let promise_raw, promise_name;
+		let raw;
 
 		this.id = id;
 		this.categoryInfo = cateInfo;
 		
-		promise_raw = this.__load(url, id, cateInfo);
-
-		if (cateInfo.path) {
-			promise_name = $get.data(`/String/Eqp.img/Eqp/${cateInfo.path}/${Number(id)}`).then(data => {
-				let ss = JSON.parse(data);
-				if (ss) {
-					this.name = ss.name;
-					this.desc = ss.desc;
-				}
-			});
+		try {
+			if (ResourceManager.isEquipExist(id, cateInfo)) {
+				raw = await ItemCategoryInfo.getItem(id);
+			}
+		}
+		catch (ex) {
+			throw ex;
+		}
+		
+		try {
+			if (!raw && load_extern_item_data) {
+				raw = await load_extern_item_data(id);
+			}
+		}
+		catch (ex) {
+			throw ex;
 		}
 
-		return new Promise(function (resolve) {
-			Promise.all([promise_raw, promise_name]).then(function (result) {
-				resolve(result[0]);
-			});
+		//this._url = url;
+		Object.defineProperty(this, "_raw", {
+			value: raw,
 		});
-	}
-	async __load(url, id, cateInfo) {
-		let raw;
-
-		if (ResourceManager.isEquipExist(id, cateInfo)) {
-			raw = JSON.parse(await $get.data(url));
-		}
-		if (!raw && load_extern_item_data) {
-			raw = await load_extern_item_data(id);
-		}
-		if (!raw) {
-			debugger;
-			return false;
-		}
-
-		this._url = url;
-		this._raw = raw;
-
-		let textures = {};
 
 		this.__load_slot();
 
@@ -1031,14 +1098,15 @@ class CharacterEquipBase extends ICharacterEquip {
 		return true;
 	}
 	__load_fragments() {
-		const fragmentConstructor = this.fragmentConstructor;
-		const action_list = this._action_list;
+		const FragmentConstructor = this.FragmentConstructor;
+
+		//Object.keys(this._raw_textures).map(k => { return '0' in this._raw_textures[k]; })
+
+		let action_list = Object.keys(this._raw_textures);
 
 		let textures = {};
-		for (let i = 0; i < action_list.length; ++i) {
-			let action = action_list[i];
-
-			if (action in this._raw_textures) {
+		for (let action of action_list) {
+			if (typeof this._raw_textures[action] == "object" && "0" in this._raw_textures[action]) {
 				let _url = this._base_path + action;
 
 				textures[action] = this.__load_frame_textures(this._raw_textures[action], _url);
@@ -1051,7 +1119,7 @@ class CharacterEquipBase extends ICharacterEquip {
 				for (let place in textures[action][frame]) {
 					if (!(place in fragment_textures)) {
 						fragment_textures[place] = {};
-						//fragment_textures[place].is_show = true;
+						//fragment_textures[place].visible = true;
 					}
 					if (!(action in fragment_textures[place])) {
 						fragment_textures[place][action] = [];
@@ -1063,13 +1131,13 @@ class CharacterEquipBase extends ICharacterEquip {
 
 		let fragments = {};
 		for (let frag in fragment_textures) {
-			fragments[frag] = new fragmentConstructor(fragment_textures[frag]);
+			fragments[frag] = new FragmentConstructor(fragment_textures[frag]);
 		}
 		this.fragments = fragments;
 	}
 	/**
 	 * @param {string} _url
-	 * @returns {Object.<string, FragmentTexture>[]} - array - textures[frame][place]
+	 * @returns {{[place:string]:FragmentTexture}[]} - array - textures[frame][place]
 	 */
 	__load_frame_textures(_raw, _url) {
 		let textures = [];
@@ -1081,7 +1149,7 @@ class CharacterEquipBase extends ICharacterEquip {
 	}
 	/**
 	 * @param {string} _url
-	 * @returns {Object.<string, FragmentTexture>} - object - textures[place]
+	 * @returns {{[place:string]:FragmentTexture}} - object - textures[place]
 	 */
 	__load_place_textures(_raw, _url) {
 		let textures = {};
@@ -1091,21 +1159,21 @@ class CharacterEquipBase extends ICharacterEquip {
 
 			if (raw) {
 				/** @type {FragmentTexture} */
-				const FragmentTextureType = this.FragmentTextureType;
+				const FragmentTextureConstructor = this.FragmentTextureConstructor;
 				let ft;
 				if (raw[""] == "") {
-					ft = new FragmentTextureType(raw);
-					ft._url = "/images" + path;
+					ft._url = path;
+					//ft._url = path;
 					textures[place] = ft
 				}
-				else if (typeof raw[""] == 'string' && raw[""].startsWith("data:image/")) {
-					ft = new FragmentTextureType(raw);
-					ft._url = raw[""];
+				else if (typeof raw[""] == 'string') {
+					ft = new FragmentTextureConstructor(raw);
+					//ft._url = raw[""];
 					textures[place] = ft;
 				}
 				else if (place == "hairShade") {
-					ft = new FragmentTextureType(raw[0]);
-					ft._url = "/images" + path + "/0";
+					ft = new FragmentTextureConstructor(raw[0]);
+					//ft._url = path + "/0";
 					textures[place] = ft;
 				}
 				if (ft) {
@@ -1123,9 +1191,6 @@ class CharacterEquipBase extends ICharacterEquip {
 			}
 		}
 		return textures;
-	}
-	get FragmentTextureType() {
-		return FragmentTexture;
 	}
 	__load_slot() {
 		if (!this._raw.info.islot) {
@@ -1211,50 +1276,62 @@ class CharacterEquipBase extends ICharacterEquip {
 
 	/**
 	 * get icon url
+	 * @see {@link ItemCategoryInfo.getIconUrl}
 	 * @returns {string}
 	 */
 	getIconUrl() {
-		const type = ItemCategoryInfo.get(this.id).slot;
-		switch (type) {
-			case "head":
-				return "/images" + this._url + "stand1/0/head";
-			case "body":
-				return "/images" + this._url + "stand1/0/body";
-			case "hair":
-				return "/images" + this._url + "stand1/0/hair";
-			case "face":
-				return "/images" + this._url + "blink/0/face";
-			default:
-				return "/images" + this._url + "info/icon";
+		const icon = this._raw.info.icon;
+		if (icon) {
+			return icon[""];
+		}
+		else {
+			debugger;
+			return ItemCategoryInfo.getIconUrl(this.id);
 		}
 	}
 
 	/**
 	 * get iconRaw url
+	 * @see {@link ItemCategoryInfo.getIconRawUrl}
 	 * @returns {string}
 	 */
 	getIconRawUrl() {
-		const type = ItemCategoryInfo.get(this.id).slot;
-		switch (type) {
-			case "head":
-				return "/images" + this._url + "stand1/0/head";
-			case "body":
-				return "/images" + this._url + "stand1/0/body";
-			case "hair":
-				return "/images" + this._url + "stand1/0/hair";
-			case "face":
-				return "/images" + this._url + "blink/0/face";
-			default:
-				return "/images" + this._url + "info/iconRaw";
+		const iconRaw = this._raw.info.iconRaw;
+		if (iconRaw) {
+			return iconRaw[""];
+		}
+		else {
+			debugger;
+			return ItemCategoryInfo.getIconRawUrl(this.id);
 		}
 	}
 
-	get _action_list() {
-		console.warn("Not implement");
+	/**
+	 * @virtual
+	 * @type {string}
+	 */
+	get _animation_type() {
+		throw new Error("Not Implement");
 	}
 
 	/**
-	 * @returns {object} raw_textures[...actions][...frames][...fragments]
+	 * @virtual
+	 * @returns {typeof CharacterFragmentBase}
+	 */
+	get FragmentConstructor() {
+		throw new Error("Not implement");
+	}
+
+	/**
+	 * @virtual
+	 * @returns {typeof FragmentTexture}
+	 */
+	get FragmentTextureConstructor() {
+		throw new Error("Not implement");
+	}
+
+	/**
+	 * @returns {{[actions:string]:{["0"]:Sprite,[frames:string]:Sprite}}} raw_textures[...actions][...frames][...fragments]
 	 */
 	get _raw_textures() {
 		return this._raw;
@@ -1265,12 +1342,12 @@ class CharacterEquipBase extends ICharacterEquip {
 	}
 }
 
-class CharacterEquip extends CharacterEquipBase {
+/**
+ * @abstract
+ */
+class CharacterAppearance extends CharacterAppearanceBase {
 	constructor() {
 		super();
-	}
-	get _animation_type() {
-		return "action";
 	}
 	//__is_texture(k) {
 	//	return (!(k == "face" || k == "delay" || k == "default"));
@@ -1281,83 +1358,71 @@ class CharacterEquip extends CharacterEquipBase {
 	 * @returns {number}
 	 */
 	getFrameCount(chara) {
-		try {
-			return chara.slots.body.fragments.body.textures[chara.action].length;
-		}
-		catch (ex) {
-			return 0;
-		}
+		return chara.slots.body.fragments.body.textures[chara.action].length;
 	}
 
 	/**
-	 * @param {Character} chara
+	 * @param {CharacterAnimationBase} chara
 	 * @returns {number}
 	 */
 	getDelay(chara) {
-		try {
-			const d = this._raw[chara.action][chara.action_frame].delay;
-			if (d != null) {!isNaN(d) && isFinite(d)
-				return d;
-			}
-		}
-		catch (ex) {
-			debugger
+		const d = this._raw[chara.action][chara.action_frame].delay;
+		if (Number.isSafeInteger(d)) {
+			return d;
 		}
 		return 120;
 	}
-
-	/**
-	 * get icon url
-	 * @returns {string}
-	 */
-	getIconUrl() {
-		return "/images" + this._url + "info/icon";
-	}
-
-	/**
-	 * get iconRaw url
-	 * @returns {string}
-	 */
-	getIconRawUrl() {
-		return "/images" + this._url + "info/iconRaw";
-	}
-
-	get fragmentConstructor() {
-		return CharacterBodyFragment;
-	}
-
-	get _action_list() {
-		return window.character_action_list;
-	}
 }
 
-class CharacterEquipBody extends CharacterEquip {
+class CharacterBody extends CharacterAppearance {
 	constructor() {
 		super();
 	}
 
-	///**
-	// * @param {CharacterAnimationBase} chara
-	// * @returns {number}
-	// */
-	//getFrameCount(chara) {
-	//	return this.fragments.body.textures[chara.action].length;
-	//}
-	
-	/**
-	 * get icon url
-	 * @returns {string}
-	 */
-	getIconUrl() {
-		return "/images" + this._url + "stand1/0/body";
+	get _animation_type() {
+		return "action";
 	}
 
 	/**
-	 * get iconRaw url
-	 * @returns {string}
+	 * @override
+	 * @returns {typeof CharacterBodyFragment}
 	 */
-	getIconRawUrl() {
-		return "/images" + this._url + "stand1/0/body";
+	get FragmentConstructor() {
+		return CharacterBodyFragment;
+	}
+
+	/**
+	 * @override
+	 * @returns {typeof BodyFragmentTexture}
+	 */
+	get FragmentTextureConstructor() {
+		return BodyFragmentTexture;
+	}
+}
+
+class CharacterEquip extends CharacterAppearance {
+	constructor() {
+		super();
+	}
+
+	get _animation_type() {
+		return "action";
+	}
+
+	/**
+	 * @override
+	 * @returns {typeof CharacterBodyFragment}
+	 */
+	get FragmentConstructor() {
+		return CharacterBodyFragment;
+	}
+
+	/**
+	 * @override
+	 * @returns {typeof BodyFragmentTexture}
+	 */
+	get FragmentTextureConstructor() {
+		return BodyFragmentTexture;
 	}
 }
 
@@ -1376,14 +1441,24 @@ class CharacterEquipCashWeapon extends CharacterEquip {
 	 */
 	async load(url, id, cateInfo, use_category) {
 		if (!use_category && use_category != "") {
-			console.warn("no use_category");
-			debugger;
-			return;
+			throw new TypeError("use_category");
 		}
 
 		this.use_category = use_category.slice(2, 4);
 
 		return super.load(url, id, cateInfo);
+	}
+
+	get _animation_type() {
+		return "action";
+	}
+
+	/**
+	 * @override
+	 * @returns {typeof CharacterBodyFragment}
+	 */
+	get FragmentConstructor() {
+		return CharacterBodyFragment;
 	}
 
 	/**
@@ -1394,11 +1469,38 @@ class CharacterEquipCashWeapon extends CharacterEquip {
 	}
 
 	get _base_path() {
-		return this._url + this.use_category + "/";
+		return this._url + this.use_category;
 	}
 }
 
-class CharacterEquipHead extends CharacterEquip {
+
+class CharacterHeadBase extends CharacterAppearance {
+	constructor() {
+		super();
+	}
+
+	get _animation_type() {
+		return "action";
+	}
+
+	/**
+	 * @override
+	 * @returns {typeof CharacterBodyFragment}
+	 */
+	get FragmentConstructor() {
+		return CharacterBodyFragment;
+	}
+
+	/**
+	 * @override
+	 * @returns {typeof FragmentTexture}
+	 */
+	get FragmentTextureConstructor() {
+		return FragmentTexture;
+	}
+}
+
+class CharacterHead extends CharacterHeadBase {
 	constructor() {
 		super();
 		this.elfEarFragment = null;
@@ -1468,176 +1570,247 @@ class CharacterEquipHead extends CharacterEquip {
 		}
 	}
 
-
-	/**
-	 * get icon url
-	 * @returns {string}
-	 */
-	getIconUrl() {
-		return "/images" + this._url + "stand1/0/head";
+	get _animation_type() {
+		return "action";
 	}
 
 	/**
-	 * get iconRaw url
-	 * @returns {string}
+	 * @override
+	 * @returns {typeof CharacterBodyFragment}
 	 */
-	getIconRawUrl() {
-		return "/images" + this._url + "stand1/0/head";
+	get FragmentConstructor() {
+		return CharacterBodyFragment;
 	}
 }
 
-class CharacterEquipHair extends CharacterEquip {
+class CharacterHair extends CharacterHeadBase {
 	constructor() {
 		super();
 	}
 
-	/**
-	 * get icon url
-	 * @returns {string}
-	 */
-	getIconUrl() {
-		return "/images" + this._url + "stand1/0/hair";
+	get _animation_type() {
+		return "action";
 	}
 
 	/**
-	 * get iconRaw url
-	 * @returns {string}
+	 * @override
+	 * @returns {typeof CharacterBodyFragment}
 	 */
-	getIconRawUrl() {
-		return "/images" + this._url + "stand1/0/hair";
+	get FragmentConstructor() {
+		return CharacterBodyFragment;
 	}
 
-	get FragmentTextureType() {
+	/**
+	 * hair color mix
+	 * @override
+	 * @returns {typeof HairFragmentTexture}
+	 */
+	get FragmentTextureConstructor() {
 		return HairFragmentTexture;
 	}
 }
 
-class CharacterEquipFaceAcc extends CharacterEquipBase {
+class CharacterFaceBase extends CharacterHeadBase {
 	constructor() {
 		super();
-	}
-	get _animation_type() {
-		return "emotion";
 	}
 	//__is_texture(k) {
 	//	return (!(k == "delay" || k == "default"));
 	//}
 
 	/**
-	 * @param {Character} chara
+	 * @param {CharacterAnimationBase} chara
 	 * @returns {number}
 	 */
 	getFrameCount(chara) {
-		try {
-			return chara.slots.face.fragments.face.textures[chara.emotion].length;
-		}
-		catch (ex) {
-			return 0;
-		}
+		return chara.slots.face.fragments.face.textures[chara.emotion].length;
 	}
 
 	/**
-	 * @param {Character} chara
+	 * @param {CharacterAnimationBase} chara
 	 * @returns {number}
 	 */
 	getDelay(chara) {
-		try {
-			const d = this._raw[chara.emotion][chara.emotion_frame].delay;
-			if (d != null) {//!isNaN(d) && isFinite(d)
-				return d;
-			}
-		}
-		catch (ex) {
-			debugger
+		const d = this._raw[chara.emotion][chara.emotion_frame].delay;
+		if (d != null) {//!isNaN(d) && isFinite(d)
+			return d;
 		}
 		return 60;
 	}
+}
+class CharacterFace extends CharacterFaceBase {
+	constructor() {
+		super();
+	}
 
-	get fragmentConstructor() {
+	get _animation_type() {
+		return "emotion";
+	}
+
+	/**
+	 * @override
+	 * @returns {typeof CharacterFaceFragment}
+	 */
+	get FragmentConstructor() {
 		return CharacterFaceFragment;
 	}
+}
+class CharacterFaceAcc extends CharacterFaceBase {
+	constructor() {
+		super();
+	}
 
-	get _action_list() {
-		return window.character_emotion_list;
+	get _animation_type() {
+		return "emotion";
+	}
+
+	/**
+	 * @override
+	 * @returns {typeof CharacterFaceFragment}
+	 */
+	get FragmentConstructor() {
+		return CharacterFaceFragment;
 	}
 }
-class CharacterEquipFace extends CharacterEquipFaceAcc {
+
+class CharacterTamingMob extends CharacterAppearance {
 	constructor() {
 		super();
 	}
 
 	/**
-	 * get icon url
-	 * @returns {string}
+	 * @returns {number}
 	 */
-	getIconUrl() {
-		return "/images" + this._url + "blink/0/face";
+	get type() {
+		return this._raw.info.tamingMob;
+	}
+
+	get actionMap() {
+		return this._raw.characterAction;
+	}
+
+	get emotionMap() {
+		return this._raw.characterEmotion;
 	}
 
 	/**
-	 * get iconRaw url
-	 * @returns {string}
+	 * @param {Vec2} relative
+	 * @param {FragmentTexture} body
+	 * @param {CharacterAnimationBase} chara
+	 * @returns {Vec2}
 	 */
-	getIconRawUrl() {
-		return "/images" + this._url + "blink/0/face";
+	adj_pos(relative, body, chara) {
+		const frag = this.fragments[0];//default
+		if (frag) {
+			const tm = frag.getTexture(chara);
+			if (tm) {
+				return relative.plus(tm.navel.minus(body.navel));
+			}
+		}
+		return relative;
+	}
+
+	/**
+	 * @override
+	 * @param {CharacterAnimationBase} chara
+	 * @returns {number}
+	 */
+	getFrameCount(chara) {
+		return chara.slots.body.fragments.body.textures[chara._ride_action].length;
+	}
+
+	/**
+	 * @override
+	 * @param {CharacterAnimationBase} chara
+	 * @returns {number}
+	 */
+	getDelay(chara) {
+		const d = Math.trunc(this._raw[chara._ride_action][chara.action_frame].delay);//?? _ride_action_frame => action_frame
+		if (Number.isSafeInteger(d)) {
+			return d;
+		}
+		return 120;
+	}
+
+	get _animation_type() {
+		return "_ride_action";
+	}
+
+	/**
+	 * @override
+	 * @returns {typeof CharacterTamingMobFragment}
+	 */
+	get FragmentConstructor() {
+		return CharacterTamingMobFragment;
+	}
+
+	/**
+	 * @override
+	 * @returns {typeof FragmentTexture}
+	 */
+	get FragmentTextureConstructor() {
+		return FragmentTexture;
 	}
 }
 
-ItemCategoryInfo._info['0000'].fragmentType = CharacterEquipBody;
-ItemCategoryInfo._info['0001'].fragmentType = CharacterEquipHead;	//	elfEar
-ItemCategoryInfo._info['0002'].fragmentType = CharacterEquipFace;	//	Face
-ItemCategoryInfo._info['0003'].fragmentType = CharacterEquipHair;	//	CharacterEquipHair;	//	Hair
-ItemCategoryInfo._info['0004'].fragmentType = CharacterEquipHair;	//	CharacterEquipHair;	//	Hair
 
-ItemCategoryInfo._info['0100'].fragmentType = CharacterEquip;		//	Cap
-ItemCategoryInfo._info['0101'].fragmentType = CharacterEquipFaceAcc;//	accessoryFace
-ItemCategoryInfo._info['0102'].fragmentType = CharacterEquip;		//	accessoryEyes
-ItemCategoryInfo._info['0103'].fragmentType = CharacterEquip;		//	accessoryEars
-ItemCategoryInfo._info['0104'].fragmentType = CharacterEquip;		//	Coat
-ItemCategoryInfo._info['0105'].fragmentType = CharacterEquip;		//	Longcoat
-ItemCategoryInfo._info['0106'].fragmentType = CharacterEquip;		//	Pants
-ItemCategoryInfo._info['0107'].fragmentType = CharacterEquip;		//	Shoes
-ItemCategoryInfo._info['0108'].fragmentType = CharacterEquip;		//	Glove
-ItemCategoryInfo._info['0109'].fragmentType = CharacterEquip;		//	Shield
-ItemCategoryInfo._info['0110'].fragmentType = CharacterEquip;		//	Cape
+ItemCategoryInfo._info['0000'].FragmentType = CharacterBody;		//	body			-> CharacterBody
+ItemCategoryInfo._info['0001'].FragmentType = CharacterHead;		//	elfEar			-> CharacterHeadBase -> CharacterHead
+ItemCategoryInfo._info['0002'].FragmentType = CharacterFace;		//	Face			-> CharacterHeadBase -> CharacterFaceBase -> CharacterFace
+ItemCategoryInfo._info['0003'].FragmentType = CharacterHair;		//	Hair			-> CharacterHeadBase -> CharacterHair
+ItemCategoryInfo._info['0004'].FragmentType = CharacterHair;		//	Hair			-> CharacterHeadBase -> CharacterHair
 
-ItemCategoryInfo._info['0170'].fragmentType = CharacterEquipCashWeapon;		//	cash-weapon
+ItemCategoryInfo._info['0100'].FragmentType = CharacterEquip;		//	Cap				-> CharacterBody
+ItemCategoryInfo._info['0101'].FragmentType = CharacterFaceAcc;		//	accessoryFace	-> CharacterHeadBase -> CharacterFaceBase -> CharacterFaceAcc
+ItemCategoryInfo._info['0102'].FragmentType = CharacterEquip;		//	accessoryEyes	-> CharacterEquip
+ItemCategoryInfo._info['0103'].FragmentType = CharacterEquip;		//	accessoryEars	-> CharacterEquip
+ItemCategoryInfo._info['0104'].FragmentType = CharacterEquip;		//	Coat			-> CharacterBody
+ItemCategoryInfo._info['0105'].FragmentType = CharacterEquip;		//	Longcoat		-> CharacterBody
+ItemCategoryInfo._info['0106'].FragmentType = CharacterEquip;		//	Pants			-> CharacterBody
+ItemCategoryInfo._info['0107'].FragmentType = CharacterEquip;		//	Shoes			-> CharacterBody
+ItemCategoryInfo._info['0108'].FragmentType = CharacterEquip;		//	Glove			-> CharacterBody
+ItemCategoryInfo._info['0109'].FragmentType = CharacterEquip;		//	Shield			-> CharacterBody
+ItemCategoryInfo._info['0110'].FragmentType = CharacterEquip;		//	Cape			-> CharacterBody
+
+ItemCategoryInfo._info['0170'].FragmentType = CharacterEquipCashWeapon;	//	cash-weapon	-> CharacterEquip
+
+ItemCategoryInfo._info['019'].FragmentType = CharacterTamingMob;	//	TamingMob		-> CharacterTamingMob
+
 
 class CharacterSlots {
 	constructor() {
 			
-		/** @type {CharacterEquipBase[]} */
+		/** @type {CharacterAppearanceBase[]} */
 		this._ordered_slot = [];
 
 
-		/** @type {CharacterEquipHair} */
-		this._hair = null;
-		/** @type {CharacterEquipHair} */
-		this._hair2 = null;
-		/** @type {CharacterEquipHair} 0~1.0 */
-		this._hairMix2 = null;
-		/** @type {CharacterEquipHair} */
-		this._hair3 = null;
-		/** @type {CharacterEquipHair} 0~1.0 */
-		this._hairMix3 = null;
-
-
-		/** @type {CharacterEquipBody} */
+		/** @type {CharacterBody} */
 		this.body = null;
 
-		/** @type {CharacterEquip} */
+		/** @type {CharacterHead} */
 		this.head = null;
 
-		/** @type {CharacterEquipFace} */
+		/** @type {CharacterFace} */
 		this.face = null;
 
-		/** @type {CharacterEquip} */
+
+		/** @type {CharacterHair} */
 		this.hair = null;
+		
+		/** @type {CharacterHair} */
+		this._hair2 = null;
+		/** @type {number} 0~1.0 */
+		this._hairMix2 = null;
+		/** @type {CharacterHair} */
+		this._hair3 = null;
+		/** @type {number} 0~1.0 */
+		this._hairMix3 = null;
+
 
 		/** @type {CharacterEquip} - 1 */
 		this.cap = null;
 
-		/** @type {CharacterEquipFace} - 2 */
+		/** @type {CharacterFaceAcc} - 2 */
 		this.accessoryFace = null;
 
 		/** @type {CharacterEquip} - 3*/
@@ -1669,7 +1842,10 @@ class CharacterSlots {
 
 		/** @type {CharacterEquip} - 11 */
 		this.weapon = null;
-	
+		
+		/** @type {CharacterTamingMob} */
+		this.tamingMob = null;
+		
 		{
 			Object.defineProperty(this, "_ordered_slot", {
 				configurable: true,
@@ -1677,7 +1853,32 @@ class CharacterSlots {
 				enumerable: false,
 				value: []
 			});
-
+			
+			Object.defineProperty(this, "_hair", {
+				writable: true,
+				enumerable: false,
+				value: null,
+			});
+			Object.defineProperty(this, "hair", {
+				enumerable: true,
+				get: function () {
+					return this._hair;
+				},
+				set: function (value) {
+					this._hair = value;
+					if (value) {
+						if (this._hair2 && this._hairMix2) {
+							this.hairColor2 = this.hairColor2;//force reload
+							this.hairMix2 = this.hairMix2;
+						}
+						if (this._hair3 && this._hairMix3) {
+							this.hairColor3 = this.hairColor3;//force reload
+							this.hairMix3 = this.hairMix3;
+						}
+					}
+				},
+			});
+			
 			Object.defineProperty(this, "_hair", {
 				writable: true,
 				enumerable: false,
@@ -1706,33 +1907,15 @@ class CharacterSlots {
 		}
 	}
 
-	/** @type {CharacterEquipHair} */
-	get hair() {
-		return this._hair;
-	}
-	set hair(value) {
-		this._hair = value;
-		if (value) {
-			if (this._hair2 && this._hairMix2) {
-				this.hairColor2 = this.hairColor2;
-				this.hairMix2 = this.hairMix2;
-			}
-			if (this._hair3 && this._hairMix3) {
-				this.hairColor3 = this.hairColor3;
-				this.hairMix3 = this.hairMix3;
-			}
-		}
-	}
-
 	async __loadColoredHair(color) {
 		const id = CharacterRenderConfig.getColorHairID(this.hair.id, color);
 		const cateInfo = ItemCategoryInfo.get(id);
 
 		if (cateInfo) {
-			const url = `/Character/${cateInfo.path + (cateInfo.path ? "/" : "") + id}.img/`;
+			const url = `/Character/${cateInfo.path + (cateInfo.path ? "/" : "") + id}`;
 			const use_category = undefined;
 
-			let hair = new CharacterEquipHair();
+			let hair = new CharacterHair();
 
 			await hair.load(url, id, cateInfo, use_category);
 
@@ -1783,9 +1966,9 @@ class CharacterSlots {
 		value = Number(value);
 
 		Promise.resolve(this.hair.$promise_hair2).then(() => {
-			/** @type {CharacterEquipBase} */
+			/** @type {CharacterAppearanceBase} */
 			let item = this._hair2;
-			/** @type {CharacterEquipBase} */
+			/** @type {CharacterAppearanceBase} */
 			let base = this.hair;
 
 			if (!item || !base) {
@@ -1853,9 +2036,9 @@ class CharacterSlots {
 		value = Number(value);
 
 		Promise.resolve(this.hair.$promise_hair3).then(() => {
-			/** @type {CharacterEquipBase} */
+			/** @type {CharacterAppearanceBase} */
 			let item = this._hair3;
-			/** @type {CharacterEquipBase} */
+			/** @type {CharacterAppearanceBase} */
 			let base = this.hair;
 
 			if (!item || !base) {
@@ -1892,7 +2075,7 @@ class CharacterSlots {
 
 	/**
 	 * @param {string} id
-	 * @param {CharacterEquipBase} loadedEquip
+	 * @param {CharacterAppearanceBase} loadedEquip
 	 * @param {string} use_category - category which used of cash-weapon
 	 */
 	async _use(id, loadedEquip, use_category) {
@@ -1903,11 +2086,11 @@ class CharacterSlots {
 		const cateInfo = ItemCategoryInfo.get(id);
 
 		if (cateInfo) {
-			let url = `/Character/${cateInfo.path + (cateInfo.path ? "/":"") + id}.img/`;
-			/** @type {CharacterEquipBase} */
+			let url = `/Character/${cateInfo.path + (cateInfo.path ? "/":"") + id}`;
+			/** @type {CharacterAppearanceBase} */
 			let item;
 
-			if (loadedEquip instanceof CharacterEquipBase) {
+			if (loadedEquip instanceof CharacterAppearanceBase) {
 				alert("CharacterSlots # _use: param loadedEquip ??");
 				debugger;
 				item = loadedEquip;
@@ -1917,7 +2100,7 @@ class CharacterSlots {
 					alert("CharacterSlots # _use: param loadedEquip ??");
 					debugger;
 				}
-				const fragmentType = cateInfo.fragmentType || CharacterEquip;
+				const fragmentType = cateInfo.FragmentType || CharacterEquip;
 
 				item = new fragmentType();
 			}
@@ -1959,7 +2142,7 @@ class CharacterSlots {
 		}
 		let cateInfo, equip;
 
-		if (id instanceof CharacterEquipBase) {
+		if (id instanceof CharacterAppearanceBase) {
 			equip = id;
 			id = equip.id;
 			cateInfo = equip.categoryInfo;
@@ -1967,10 +2150,12 @@ class CharacterSlots {
 		else {
 			cateInfo = ItemCategoryInfo.get(id);
 		}
+		
+		const slotName = cateInfo.slot;
 
-		if (cateInfo.slot != "head" && cateInfo.slot != "body") {
-			if (this[cateInfo.slot] && this[cateInfo.slot].id == id) {
-				equip = this[cateInfo.slot];
+		if (slotName != "head" && slotName != "body") {
+			if (this[slotName] && this[slotName].id == id) {
+				equip = this[slotName];
 				for (let slot in equip.islot) {
 					let order = equip.islot[slot];
 					if (this._ordered_slot[order]) {
@@ -1978,6 +2163,7 @@ class CharacterSlots {
 					}
 					delete this._ordered_slot[order];
 				}
+				this[slotName] = null;
 				return true;
 			}
 		}
@@ -2048,22 +2234,24 @@ class CharacterSlots {
 	toJSON() {
 		let slots = [];
 
-		if (this.body) slots.push(this.body.id);
-		if (this.head) slots.push(this.head.id);
-		if (this.face) slots.push(this.face.id);
-		if (this.hair) slots.push(this.hair.id);
-		if (this.cap) slots.push(this.cap.id);
-		if (this.accessoryFace) slots.push(this.accessoryFace.id);
-		if (this.accessoryEyes) slots.push(this.accessoryEyes.id);
-		if (this.accessoryEars) slots.push(this.accessoryEars.id);
-		if (this.coat) slots.push(this.coat.id);
-		if (this.longcoat) slots.push(this.longcoat.id);
-		if (this.pants) slots.push(this.pants.id);
-		if (this.shoes) slots.push(this.shoes.id);
-		if (this.glove) slots.push(this.glove.id);
-		if (this.shield) slots.push(this.shield.id);
-		if (this.cape) slots.push(this.cape.id);
-		if (this.weapon) slots.push(this.weapon.id);
+		if (this.body) slots.push(this.body);
+		if (this.head) slots.push(this.head);
+		if (this.face) slots.push(this.face);
+		if (this.hair) slots.push(this.hair);
+		//if (this._hair2) slots.push(this._hair2);
+		//if (this._hair3) slots.push(this._hair3);
+		if (this.cap) slots.push(this.cap);
+		if (this.accessoryFace) slots.push(this.accessoryFace);
+		if (this.accessoryEyes) slots.push(this.accessoryEyes);
+		if (this.accessoryEars) slots.push(this.accessoryEars);
+		if (this.coat) slots.push(this.coat);
+		if (this.longcoat) slots.push(this.longcoat);
+		if (this.pants) slots.push(this.pants);
+		if (this.shoes) slots.push(this.shoes);
+		if (this.glove) slots.push(this.glove);
+		if (this.shield) slots.push(this.shield);
+		if (this.cape) slots.push(this.cape);
+		if (this.weapon) slots.push(this.weapon);
 
 		return slots;
 	}
@@ -2141,22 +2329,56 @@ class CharacterChangeLog {
 
 export class CharacterAnimationBase {
 	constructor() {
-		this._$dirty = 0;
+		this._$dirty = 0;//force update vue
+
+		/** @type {string} - 未完成 */
+		this.job = null;
+		/** @type {string} - 未完成 */
+		this.subJob = null;
+
 
 		/** @type {ActionAnimation} */
 		this.actani = new ActionAnimation();
 
 		/** @type {number} - animation speed rate */
 		this.speed = 1;
-		
-		this._action = "stand1";
-		this._action_frame = 0;
-		this._action_time = 0;
 
+		/** @type {boolean} */
+		this.fixed_speed = false;
+
+		/** @type {boolean} - pause animation */
+		this.pause = false;
+
+
+		this.hideBody = false;
+
+		/** @type {string} */
+		this._ride_action = "stand1";
+
+		//	action
+
+		/** @type {string} */
+		this._action = "stand1";
+
+		/** @type {number} */
+		this._action_frame = 0;
+
+		//	emotion
+
+		/** @type {string} */
 		this._emotion = "blink";
+
+		/** @type {number} */
 		this._emotion_frame = 0;
+
+		/** @type {number} */
 		this._emotion_time = 0;
-		this._emotion_frame_sequence = [0, 1, 2, 1];
+
+		//
+
+		this._generator_emotion_frame = this.emotion_frame_sequence_generator(3, 0);//[0,1,2].length
+		
+		this.blinkRate = 0.015;
 
 		/** @type {CharacterSlots} */
 		this.slots = new CharacterSlots();
@@ -2208,15 +2430,12 @@ export class CharacterAnimationBase {
 	_waitFrameTexturesLoaded() {
 		let tasks = [];
 		for (let i in this.slots) {
+			/** @type {CharacterAppearanceBase} */
 			let item = this.slots[i];
 			if (item) {
-				if (typeof item.getFrameCount != "function") {
-					alert('typeof item.getFrameCount != "function"');
-					debugger;
-				}
-				let count = item.getFrameCount(this);
 				for (let j in item.fragments) {
 					let frag = item.fragments[j];
+					let count = frag.getFrameCount(this);
 					for (let k = 0; k < count; ++k) {
 						let ft = frag.getFrameTexture(this, k);
 						if (ft && !ft._isLoaded_or_doload()) {
@@ -2237,9 +2456,6 @@ export class CharacterAnimationBase {
 		this.action = "stand1";
 
 		/** @type {number} */
-		this._action_time = 0;
-
-		/** @type {number} */
 		this._action_frame = 0;
 
 		/** @type {string} */
@@ -2250,6 +2466,14 @@ export class CharacterAnimationBase {
 
 		/** @type {number} */
 		this._emotion_frame = 0;
+	}
+
+	/** @type {number} - 0~1 */
+	getSpeed() {
+		if (this.pause) {
+			return 0;
+		}
+		return this.fixed_speed ? 1 : this.speed;
 	}
 
 	/**
@@ -2334,87 +2558,94 @@ export class CharacterAnimationBase {
 
 	/** @type {string} */
 	get action() {
+		//if (this.slots.tamingMob) {
+		//	const actmap = this.slots.tamingMob.actionMap;
+		//	if (actmap) {
+		//		return actmap[this._action];
+		//	}
+		//	return "sit";//default
+		//}
 		return this._action;
 	}
 	set action(act) {
-		if (this.actani._action != act && this.slots.body) {
-		//if (this._action != act && this.slots.body) {
-			//if (this.slots.body._action_list.indexOf(act) >= 0) {
-			//	this._action = act;
-			//}
-			//this._action_frame = 0;
-			//this._action_time = 0;
-			////
-			////this.action_frame_sequence = [...circularSequence(this.action_frame_count)];
+		if (this.slots.tamingMob) {
+			let _act;
 
-			this._action = act;
-			this.actani.reload(act);
+			this._ride_action = act;
 
-			this.__require_update |= true;
-		}
-	}
+			if (this.slots.tamingMob.actionMap) {
+				_act = this.slots.tamingMob.actionMap[act];
 
-	/** @type {number} */
-	get action_frame() {
-		const frame_count = this.action_frame_count;
-		if (frame_count) {
-			return this._action_frame % frame_count;
-		}
-		return 0;
-	}
-	set action_frame(value) {
-		this._action_time = 0;
-		this._action_frame = value;
-		this.__require_update |= true;
+				if (_act == "hideBody") {
+					this.hideBody = true;
 
-		if (process.env.NODE_ENV !== 'production') {
-			if (!(typeof value == 'number')) {
-				debugger;
-				this._action_frame = Number(value) | 0;
-			}
-		}
-	}
+					//TODO: hideBody act=?
 
-	/**
-	 * @param {number} next
-	 */
-	_get_action_next_frame(next) {
-		const frame_count = this.action_frame_count;
-		if (frame_count) {
-			let f = this._action_frame + next;
-			return f < 0 ? (frame_count - 1) : (f % frame_count);
-		}
-		return 0;
-	}
+					this._action = act;
+					if (this.actani._action != act) {
+						this.actani.reload(act);
+					}
+					this.__require_update |= true;
+				}
+				else {
+					this.hideBody = false;
 
-	/** @type {number} */
-	get action_time() {
-		return this._action_time;
-	}
-	set action_time(time) {
-		const frame_count = this.action_frame_count;
-
-		if (frame_count) {
-			if (time < this.action_delay) {
-				this._action_time = time;
+					this._action = _act;
+					if (this.actani._action != _act) {
+						this.actani.reload(_act);
+					}
+					this.__require_update |= true;
+				}
 			}
 			else {
-				this._action_time = 0;
-				++this._action_frame;
+				if (act == "rope") {
+					this._action = "rope";//default
+				}
+				else if (act == "ladder") {
+					this._action = "ladder";//default
+				}
+				else {
+					this._action = "sit";//default
+					this._action_frame = 0;//default
+				}
+				if (this.actani._action != act) {
+					this.actani.reload(act);
+				}
+				this.__require_update |= true;
+			}
+		}
+		else {
+			this.hideBody = false;
+			this._ride_action = null;
+
+			if (this.actani._action != act && this.slots.body) {
+				this._action = act;
+				this.actani.reload(act);
 
 				this.__require_update |= true;
 			}
 		}
 	}
 
-	/**
-	 * @returns {number}
-	 */
-	get action_delay() {
-		if (this.slots.body) {
-			return this.slots.body.getDelay(this);
+	/** @type {number} */
+	get action_frame() {
+		return this._action_frame;
+	}
+	set action_frame(value) {
+		if (value === "") {//from $("input")
+			return;
 		}
-		return 180;
+		if (process.env.NODE_ENV !== 'production') {
+			if (!(typeof value == 'number')) {
+				debugger;
+				this._action_frame = Number(value) | 0;
+				this.__require_update |= true;
+				return;
+			}
+		}
+
+		this._action_frame = value;
+		this.__require_update |= true;
 	}
 
 	/** @type {number} */
@@ -2435,52 +2666,70 @@ export class CharacterAnimationBase {
 		return this._emotion;
 	}
 	set emotion(emo) {
-		if (this._emotion != emo && this.slots.face && this.slots.face._action_list.indexOf(emo) >= 0) {
+		if (this._emotion != emo && this.slots.face && this.slots.face.fragments.face.textures[emo]) {
 			this._emotion = emo;
 			this._emotion_frame = 0;
 			this._emotion_time = 0;
 
-			this._emotion_frame_sequence = [...circularSequence(this.emotion_frame_count)];
+			if (emo == "blink") {
+				this.blinkRate = 0.015;
+			}
+			else {
+				this.blinkRate = 1;
+			}
+			
+			this._generator_emotion_frame = this.emotion_frame_sequence_generator(this.emotion_frame_count, 0);
 
 			this.__require_update |= true;
 		}
 	}
 
-	*emotion_frame_sequence_generator(length) {
-		for (; ;) {
-			yield* circularSequence(length);
-
-			for (; Math.random() < 0.5;) {
+	/**
+	 * @param {number} count of frame
+	 * @param {number} start frame
+	 */
+	*emotion_frame_sequence_generator(length, start) {
+		while (true) {
+			if (Math.random() < this.blinkRate) {
+				yield* linearSequence(length, start);
+			}
+			else {
 				yield 0;
 			}
 		}
 	}
-		
+	
 	/** @type {number} */
 	get emotion_frame() {
-		let f = this._emotion_frame_sequence[this._emotion_frame % this._emotion_frame_sequence.length];
-		return f;
+		return this._emotion_frame;
 	}
 	set emotion_frame(value) {
-		this._emotion_frame = value;
-		this._emotion_time = 0;
-		this.__require_update |= true;
-
+		if (value === "") {//from $("input")
+			return;
+		}
 		if (process.env.NODE_ENV !== 'production') {
 			if (!(typeof value == 'number')) {
 				debugger;
 				this._emotion_frame = Number(value) | 0;
+				this._emotion_time = 0;
+				this.__require_update |= true;
 			}
 		}
+
+		this._emotion_frame = value;
+		this._emotion_time = 0;
+		this.__require_update |= true;
 	}
 
 	/**
 	 * @param {number} next
 	 */
 	_get_emotion_next_frame(next) {
-		let f = this._emotion_frame + next;
-		f = f < 0 ? (this._emotion_frame_sequence.length - 1) : (f % this._emotion_frame_sequence.length);
-		return this._emotion_frame_sequence[f];
+		let r = this._generator_emotion_frame.next().value;
+		
+		this._generator_emotion_frame = this.emotion_frame_sequence_generator(this.emotion_frame_count, this._emotion_frame);
+		
+		return r;
 	}
 
 	/** @type {number} */
@@ -2495,7 +2744,7 @@ export class CharacterAnimationBase {
 			else {
 				this._emotion_time = 0;
 
-				++this._emotion_frame;
+				this._emotion_frame = this._generator_emotion_frame.next().value;
 
 				this.__require_update |= true;
 			}
@@ -2526,9 +2775,15 @@ export class CharacterAnimationBase {
 	}
 
 	/**
-	 * @param {any} number  0 <= stamp < Infinity
+	 * @param {number} stamp - 0 <= stamp < Infinity
 	 */
-	_update(stamp) {
+	_update(_stamp) {
+		if (this.pause) {
+			return;
+		}
+
+		let stamp = _stamp * this.getSpeed();
+		
 		if (this.actani) {
 			if (this.actani.isEnd() && this.actani.loop) {
 				this.actani.reset();
@@ -2536,15 +2791,12 @@ export class CharacterAnimationBase {
 
 			this.actani.update(stamp, this);
 		}
-		else {
-			this.action_time += stamp;
-		}
 
-		this.emotion_time += stamp;
+		this.emotion_time += _stamp;
 
 		for (let i in this.slots) {
 			let equip = this.slots[i];
-			if (equip && equip.effect) {
+			if (equip && equip.effect && equip.effect.enable) {
 				equip.effect.update(stamp);
 			}
 		}
@@ -2553,16 +2805,15 @@ export class CharacterAnimationBase {
 	 * @param {any} number  0 < stamp * speed < Infinity
 	 */
 	update(stamp) {
-		stamp *= this.speed;
-		if (!stamp) {
-			return;
-		}
-
 		this._update(stamp);
 	}
 
+	/**
+	 * use await this.__synchronize(stamp) update and force wait all resource load
+	 * @param {number}
+	 */
 	__forceUpdate(stamp) {
-		this._$dirty = -Math.random() + Math.random() * 3.1415926535897;
+		this._$dirty = Math.random();
 		this._update(stamp | 0);
 		this.__update_frag_list();
 	}
@@ -2575,11 +2826,6 @@ export class CharacterAnimationBase {
 	 */
 	_draw(renderer, x, y, angle, flip) {
 		renderer.pushGlobalAlpha();
-
-		if (this.__require_update) {
-			this.__update_frag_list();
-			this.__require_update = false;
-		}
 
 		//list.filter(a=>a&&a._raw.map).forEach(a=>{ for (let i in a._raw.map) { if (q[i]) { q[i].push(a); } else { q[i] = [a]; } } })
 		this.__draw_list(renderer, this.__frag_list, x, y, angle, flip);
@@ -2642,16 +2888,66 @@ export class CharacterAnimationBase {
 		}
 		renderer.popMatrix();
 	}
+	__update_frag_list() {
+		this.__frag_list = [];
+		
+		/** @type {Array<CharacterAppearanceBase>[]} */
+		let slots = {};
+		
+		for (let i = 2; i <= 3; ++i) {
+			/** @type {CharacterAppearanceBase} */
+			let item = this.slots["_hair" + i];
+			
+			this.__add_equip_to_frag_list(slots, item);
+		}
+		for (let i in this.slots._ordered_slot) {
+			/** @type {CharacterAppearanceBase} */
+			let item = this.slots._ordered_slot[i];
+			
+			this.__add_equip_to_frag_list(slots, item);
+		}
+		
+		{//back
+			let is_back = false;
+			
+			for (let i in slots) {
+				/** @type {FragmentTexture[]} */
+				let fts = slots[i];
+				for (let j in fts) {
+					/** @type {FragmentTexture} */
+					let ft = fts[j];
+					if (is_back) {
+						if (ft._place.startsWith("face")) {
+							continue;
+						}
+					}
+					else if (ft._place.startsWith("backHair")) {
+						is_back = true;
+					}
+					this.__add_frag_to_list(ft);
+				}
+			}
+		}
+		
+		{
+			let ae = this.__frag_list[114];//HACK: Ae
+			if (ae) {
+				this.__frag_list.push(ae);
+			}
+		}
+
+		this._calcBoundBox();
+	}
 	/**
-	 * @param {Array<CharacterEquipBase>[]} slots
-	 * @param {CharacterEquipBase} item
+	 * @param {Array<CharacterAppearanceBase>[]} slots
+	 * @param {CharacterAppearanceBase} item
 	 */
 	__add_equip_to_frag_list(slots, item) {
 		// if equip not use then value is mumber(slot_order) where this.slots._ordered_slot
 		if (item == null) {
 			return;//debugger;
 		}
-		else if (item > 0) {// typeof item == 'number'; item != null && (item instanceof CharacterEquipBase || item >= 0)
+		else if (item > 0) {// typeof item == 'number'; item != null && (item instanceof CharacterAppearanceBase || item >= 0)
 			return;//continue;
 		}
 
@@ -2695,45 +2991,8 @@ export class CharacterAnimationBase {
 					this.__add_frag_to_list(ft);
 				}
 			}
-			//item.fragments[j].is_show = true;
+			//item.fragments[j].visible = true;
 		}
-	}
-	__update_frag_list() {
-		this.__frag_list = [];
-
-		/** @type {Array<CharacterEquipBase>[]} */
-		let slots = {};
-
-		for (let i = 2; i <= 3; ++i) {
-			/** @type {CharacterEquipBase} */
-			let item = this.slots["_hair" + i];
-
-			this.__add_equip_to_frag_list(slots, item);
-		}
-		for (let i in this.slots._ordered_slot) {
-			/** @type {CharacterEquipBase} */
-			let item = this.slots._ordered_slot[i];
-
-			this.__add_equip_to_frag_list(slots, item);
-		}
-
-		for (let i in slots) {
-			/** @type {FragmentTexture[]} */
-			let fts = slots[i];
-			for (let j in fts) {
-				/** @type {FragmentTexture} */
-				let ft = fts[j];
-				this.__add_frag_to_list(ft);
-			}
-		}
-		{
-			let ae = this.__frag_list[114];//Ae
-			if (ae) {
-				this.__frag_list.push(ae);
-			}
-		}
-
-		this._calcBoundBox();
 	}
 	/** @param {FragmentTexture} ft */
 	__add_frag_to_list(ft) {
@@ -2751,7 +3010,7 @@ export class CharacterAnimationBase {
 
 		for (let i in this.__frag_list) {
 			let ft = this.__frag_list[i];
-			if (ft.texture) {
+			if (ft.texture && ft.relative) {
 				let x0 = ft.relative.x;
 				let y0 = ft.relative.y;
 				let x1 = x0 + ft.width;
@@ -2774,10 +3033,12 @@ export class CharacterAnimationBase {
 	
 	toJSON() {
 		let obj = {
-			hair2: this.slots._hair2.id,
-			hairMix2: this.slots.hairMix2,
 			slots: this.slots.toJSON(),
 		};
+		if (this.slots._hair2) {
+			obj.hair2 = this.slots._hair2.id;
+			obj.hairMix2 = this.slots.hairMix2;
+		}
 
 		if (this.slots.head.elfEar) {
 			obj.ear = "elf";
@@ -2798,9 +3059,9 @@ export class CharacterRenderer extends CharacterAnimationBase {
 		super();
 
 		/** @type {number} - position x */
-		this.x = (engine._canvas.width || 800) / 2;
+		this.x = 0;
 		/** @type {number} - position y */
-		this.y = (engine._canvas.height || 600) / 2;
+		this.y = 0;
 
 		/** @type {number} - where layer */
 		this.z = 5;
@@ -2824,18 +3085,25 @@ export class CharacterRenderer extends CharacterAnimationBase {
 
 		/** @type {Rectangle} */
 		this._boundBox = null;
+
+		/** @type {string} */
+		this._$old_action = null;
+		/** @type {string} */
+		this._$old_emotion = null;
 	}
 
 	static async Init() {
 		let result = await Promise.all([
-			$get("/make_zorders"),
-			$get.data("/smap.img/"),
+			$get.data("/zmap"),
+			$get.data("/smap"),
 			ItemEffect.Init(),
 			ActionAnimation.Init(),//action definition
 		]);
+		
+		zMap = {};
+		Object.keys(result[0]).reverse().forEach((k, i) => zMap[k] = i + 1);
 
-		zMap = JSON.parse(result[0]);
-		sMap = JSON.parse(result[1]);
+		sMap = result[1];
 	}
 
 	load() {
@@ -2858,8 +3126,16 @@ export class CharacterRenderer extends CharacterAnimationBase {
 	 * @param {any} number  0 < stamp * speed < Infinity
 	 */
 	update(stamp) {
+		this._$old_action = this._action;
+		this._$old_emotion = this.emotion;
+
 		this.waitLoaded();
 		super.update(stamp);
+
+		if (this.__require_update) {
+			this.__update_frag_list();
+			this.__require_update = false;
+		}
 	}
 
 	/**
@@ -2869,7 +3145,7 @@ export class CharacterRenderer extends CharacterAnimationBase {
 		const x = Math.trunc(this.x + this.tx);
 		const y = Math.trunc(this.y + this.ty);
 		
-		this._draw(renderer, x, y, this.angle, this.front >= 1);
+		this._draw(renderer, x, y, this.angle, this.front > 0);
 		
 		//this.tx = 0;//auto clear
 		//this.ty = 0;//auto clear
@@ -2890,6 +3166,10 @@ export class CharacterRenderer extends CharacterAnimationBase {
 	}
 
 	
+	/**
+	 * update and force wait all resource load
+	 * @param {number}
+	 */
 	async __synchronize(stamp) {
 		this.__forceUpdate(stamp);
 	
@@ -2912,22 +3192,32 @@ export class CharacterRenderer extends CharacterAnimationBase {
 	 * @param {string} category - category of cash-weapon
 	 */
 	async use(id, category) {
+		if (!category) {
+			category = ItemCategoryInfo.getJobWeaponCategory(this.job);
+		}
 		const item_type = id[0];
 		switch (item_type) {
 			case "0"://equip
-				if (id.startsWith("0170")) {
-					//this.$$changeLog.weaponType = ss[1];/??
-					this.$$changeLog.weapon = id;
+				{
+					if (ItemCategoryInfo.isCashWeapon(id)) {
+						//this.$$changeLog.weaponType = ss[1];/??
+						this.$$changeLog.weapon = id;
+					}
+					else {
+						this.$$changeLog.useEquip.push(id);
+					}
+					//
+					let task = this.slots._use(id, null, category);
+					this.__load_task.push(task);
+					await task;
+					
+					if (id.startsWith("019")) {
+						this.action = this.action;//force update action
+					}
+					
+					this.__update_frag_list();
+					this._calcBoundBox();
 				}
-				else {
-					this.$$changeLog.useEquip.push(id);
-				}
-				//
-				let task = this.slots._use(id, null, category);
-				this.__load_task.push(task);
-				await task;
-				this._calcBoundBox();
-				return task;
 		}
 	}
 
@@ -2937,10 +3227,12 @@ export class CharacterRenderer extends CharacterAnimationBase {
 	unuse(id) {
 		debugger;
 		if (id[0] == "0") {//equip
-			if (this.slots._unuse(id)) {
+			let result = this.slots._unuse(id);
+			if (result) {
 				this.$$changeLog.unuseEquip.push(id);
 				this._calcBoundBox();
 			}
+			return result;
 		}
 	}
 
@@ -3082,9 +3374,9 @@ export class CharacterRenderer extends CharacterAnimationBase {
 		return result;
 	}
 
-	_outlink() {
+	_outlink_old() {
 		if (this.slots.body && this.slots.body.id && this.slots.face && this.slots.face.id && this.action && this.emotion) {
-			let link = "https://labs.maplestory.io/api/character/center/" + this.slots.body.id + "/";
+			let link = "https://labs.maplestory.io/api/GMS/latest/character/center/" + this.slots.body.id + "/";
 			let slots = [...this.slots.enumerate()].map(a => parseInt(a.id, 10));
 
 			slots[0] = this.slots.face.id + ":" + this.emotion;
@@ -3093,11 +3385,36 @@ export class CharacterRenderer extends CharacterAnimationBase {
 
 			link += "/" + this.action + "?showears=" + (this.elfEar ? "true" : "false");
 
+			link += "&showLefEars=" + (this.lefEar ? "true" : "false");
+
 			return link;
 		}
 		console.log("character need body, face, action, emotion");
 	}
-
+	
+	_outlink(name) {
+		const animationName = this.action;
+		const frame = this.action_frame;
+		const slots = this.slots;
+		const itemList = JSON.stringify(makeItemList.call());
+		return encodeURI(
+				"https://maplestory.io/api/character/" +
+				itemList.slice(1, itemList.length - 1) +    // not array
+				"/" + animationName + "/" + frame + "?" +
+				"showears=" + this.elfEar +
+				"&showLefEars=" + this.lefEar +
+				"&resize=1" +
+				(name ? ("&name=" + name) : "") +
+				"&flipX=" + Boolean(this.front > 0) +
+				"&bgColor=0,0,0,0"
+				);
+		function makeItemList() {
+			return Object.values(slots).filter(a => a).map(item => {
+				return item.toJSON(animationName);
+			});
+		}
+	}
+	
 	_download() {
 		window.open(this._outlink());
 	}
@@ -3113,9 +3430,9 @@ export class CharacterRenderer extends CharacterAnimationBase {
 
 			svg += '<g transform="translate(32, 96)">';
 			frag_list.forEach(function (ft) {
-				if (ft) {
+				if (ft && ft.relative) {
 					let clz = ft.classList;
-					svg += `\t<image class="${clz}" opacity="${ft.opacity}" x="${ft.relative.x}" y="${ft.relative.y}" width="${ft.width}" height="${ft.height}" xlink:href="${ft._url}"></image>\n`;
+					svg += `\t<image class="${clz}" opacity="${ft.visible ? ft.opacity : 0}" x="${ft.relative.x}" y="${ft.relative.y}" width="${ft.width}" height="${ft.height}" xlink:href="${ft._url}"></image>\n`;
 				}
 			});
 			svg += '</g>';
@@ -3201,7 +3518,10 @@ export class CharacterRenderer extends CharacterAnimationBase {
 
 		return base64;
 	}
-	
+
+	/**
+	 * @returns {Promise<FragmentTexture[]>}
+	 */
 	async __texture_to_base64() {
 		let frag_list = this.__frag_list;
 		let tasks = [];
@@ -3251,10 +3571,10 @@ export class CharacterRenderer extends CharacterAnimationBase {
 		return Promise.all(tasks);
 	}
 }
-AddInitTask(CharacterRenderer.Init());
+AddInitTask(CharacterRenderer.Init);
 
-function* circularSequence(length) {
-	let i = 0;
+function* circularSequence(length, start=0) {
+	let i = start;
 	for (; i < length; ++i) {//a: 0, 1, 2, 3, ...b
 		yield i;
 	}
@@ -3263,8 +3583,8 @@ function* circularSequence(length) {
 	}
 }
 
-function* linearSequence(length) {
-	for (let i = 0; i < length; ++i) {
+function* linearSequence(length, start=0) {
+	for (let i = start; i < length; ++i) {
 		yield i;
 	}
 }
